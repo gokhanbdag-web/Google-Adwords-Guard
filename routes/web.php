@@ -40,6 +40,8 @@ $router->get('/google/connect', [GoogleController::class, 'connect']);
 $router->get('/google/callback', [GoogleController::class, 'callback']);
 $router->get('/google/campaigns', [GoogleController::class, 'campaigns']);
 $router->post('/google/exclude', [GoogleController::class, 'excludeIp']);
+$router->post('/google/remove', [GoogleController::class, 'removeIp']);
+$router->post('/google/manager', [GoogleController::class, 'setManager']);
 $router->post('/google/disconnect', [GoogleController::class, 'disconnect']);
 $router->get('/admin', [AdminDashboardController::class, 'index']);
 $router->get('/admin/plans', [PlanController::class, 'index']);
