@@ -1,4 +1,4 @@
-name: PHP validation
+name: PHP and database validation
 
 on:
   push:
@@ -8,21 +8,51 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  validate:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo_mysql, openssl, curl, mbstring
+          extensions: pdo_mysql, openssl, curl, mbstring, dom
           coverage: none
+
       - name: Validate Composer manifest
         run: composer validate --no-check-publish
+
+      - name: Install dependencies and generate autoloader
+        run: composer install --no-interaction --no-progress --prefer-dist
+
       - name: PHP syntax check
         shell: bash
         run: |
           set -euo pipefail
           while IFS= read -r -d '' file; do
             php -l "$file"
-          done < <(find app bootstrap config public routes resources -type f -name '*.php' -print0)
+          done < <(find app bootstrap config public routes resources bin tests -type f -name '*.php' -print0)
+
+      - name: Import fresh MySQL schema and seeders
+        run: |
+          mysql --host=127.0.0.1 --user=root --password=root < database/schema.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/seeders.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/002_tracking_and_ip_management.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/003_google_ads_actions.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/004_google_ads_account_exclusions.sql
+
+      - name: Run risk regression tests
+        run: php tests/run.php
