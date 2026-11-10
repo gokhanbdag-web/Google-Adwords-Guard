@@ -150,13 +150,6 @@ try {
                 'id' => $auditId
             ]);
 
-            if ($status === 'succeeded') {
-                $updateRule = $pdo->prepare(
-                    "UPDATE ip_rules SET source = 'google_ads'
-                     WHERE id = :id AND website_id = :website_id"
-                );
-                $updateRule->execute(['id' => $ruleId, 'website_id' => (int) $job['website_id']]);
-            }
         } catch (Throwable $e) {
             $updateAudit = $pdo->prepare(
                 "UPDATE google_ads_actions SET status = 'failed', error_message = :error WHERE id = :id"
