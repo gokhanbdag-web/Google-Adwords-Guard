@@ -39,13 +39,22 @@ ON DUPLICATE KEY UPDATE
     meta_title = VALUES(meta_title),
     meta_description = VALUES(meta_description);
 
-INSERT INTO menus
-(location, label, url, sort_order, is_active)
-VALUES
-('header', 'Ana Sayfa', '/', 1, 1),
-('header', 'Giriş Yap', '/login', 2, 1),
-('header', 'Kayıt Ol', '/register', 3, 1),
-('footer', 'Gizlilik Politikası', '/privacy', 1, 1);
+INSERT INTO menus (location, label, url, sort_order, is_active)
+SELECT 'header', 'Ana Sayfa', '/', 1, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location = 'header' AND url = '/')
+UNION ALL
+SELECT 'header', 'Giriş Yap', '/login', 2, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location = 'header' AND url = '/login')
+UNION ALL
+SELECT 'header', 'Kayıt Ol', '/register', 3, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location = 'header' AND url = '/register')
+UNION ALL
+SELECT 'footer', 'Gizlilik Politikası', '/privacy', 1, 1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location = 'footer' AND url = '/privacy');
 
 INSERT INTO settings (setting_key, setting_value)
 VALUES
