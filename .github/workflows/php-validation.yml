@@ -91,3 +91,21 @@ jobs:
           test -f storage/installed.lock
           count=$(mysql --host=127.0.0.1 --user=root --password=root adguard_install_test -Nse "SELECT COUNT(*) FROM users WHERE email='installer@example.test' AND role='admin';")
           test "$count" = "1"
+
+      - name: Verify installed web and CLI runtime without vendor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv vendor /tmp/adguard-vendor
+          restore_vendor() { if [ -d /tmp/adguard-vendor ]; then mv /tmp/adguard-vendor vendor; fi; }
+          trap restore_vendor EXIT
+          php -S 127.0.0.1:8081 -t . >/tmp/adguard-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; restore_vendor' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8081/login -o /tmp/adguard-login.html; then break; fi
+            sleep 1
+          done
+          grep -q 'Hesabınıza giriş yapın' /tmp/adguard-login.html
+          php bin/cron.php
+          php bin/queue-worker.php
