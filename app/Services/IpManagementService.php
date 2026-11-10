@@ -169,17 +169,65 @@ final class IpManagementService
         }
 
         try {
-            $statement->execute([
+            $existingQuery = $this->db->prepare(
+                'SELECT id, status FROM ip_rules
+                 WHERE user_id = :user_id
+                   AND website_id = :website_id
+                   AND ip_address = :ip_address
+                   AND rule_type = :rule_type
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+            $existingQuery->execute([
                 'user_id' => $userId,
                 'website_id' => $websiteId,
                 'ip_address' => $packedIp,
-                'rule_type' => $ruleType,
-                'reason' => $reason,
-                'expires_at' => $expiresAt
+                'rule_type' => $ruleType
             ]);
+            $existing = $existingQuery->fetch(PDO::FETCH_ASSOC);
 
-            $id = (int) $this->db->lastInsertId();
-            $this->recordHistory($id, $websiteId, $userId, $packedIp, 'created', null, $ruleType, null, 'active', $reason);
+            if ($existing) {
+                $id = (int) $existing['id'];
+                $update = $this->db->prepare(
+                    "UPDATE ip_rules
+                     SET status = 'active',
+                         source = 'manual',
+                         risk_score = 0,
+                         evidence_count = 0,
+                         reason = :reason,
+                         expires_at = :expires_at
+                     WHERE id = :id"
+                );
+                $update->execute([
+                    'reason' => $reason,
+                    'expires_at' => $expiresAt,
+                    'id' => $id
+                ]);
+                $this->recordHistory(
+                    $id,
+                    $websiteId,
+                    $userId,
+                    $packedIp,
+                    'updated',
+                    $ruleType,
+                    $ruleType,
+                    (string) $existing['status'],
+                    'active',
+                    $reason
+                );
+            } else {
+                $statement->execute([
+                    'user_id' => $userId,
+                    'website_id' => $websiteId,
+                    'ip_address' => $packedIp,
+                    'rule_type' => $ruleType,
+                    'reason' => $reason,
+                    'expires_at' => $expiresAt
+                ]);
+
+                $id = (int) $this->db->lastInsertId();
+                $this->recordHistory($id, $websiteId, $userId, $packedIp, 'created', null, $ruleType, null, 'active', $reason);
+            }
 
             if ($ownsTransaction) {
                 $this->db->commit();
