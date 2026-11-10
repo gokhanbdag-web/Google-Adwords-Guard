@@ -126,6 +126,11 @@ final class IyzicoGateway
         return hash_equals(strtolower($expected), strtolower($signature));
     }
 
+    public function getSubscriptionDetail(string $referenceCode): array
+    {
+        return $this->request('GET', '/v2/subscription/subscriptions/' . rawurlencode($referenceCode), []);
+    }
+
     public function cancelSubscription(string $referenceCode): array
     {
         return $this->request(
