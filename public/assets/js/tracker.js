@@ -31,8 +31,8 @@
     });
 
     if (navigator.sendBeacon) {
-        navigator.sendBeacon(endpoint, new Blob([payload], { type: 'text/plain;charset=UTF-8' }));
-        return;
+        var queued = navigator.sendBeacon(endpoint, new Blob([payload], { type: 'text/plain;charset=UTF-8' }));
+        if (queued) return;
     }
 
     fetch(endpoint, {
