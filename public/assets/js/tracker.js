@@ -5,7 +5,7 @@
     if (!script) return;
 
     var siteKey = script.getAttribute('data-site-key') || '';
-    var endpoint = script.getAttribute('data-endpoint') || new URL('/track', script.src).toString();
+    var endpoint = script.getAttribute('data-endpoint') || new URL('../../track', script.src).toString();
     if (!/^[a-f0-9]{64}$/i.test(siteKey)) return;
 
     function createUuid() {
