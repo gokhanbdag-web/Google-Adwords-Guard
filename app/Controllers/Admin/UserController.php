@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace App\\Controllers\\Admin;
+namespace App\Controllers\Admin;
 
-use App\\Core\\Database;
+use App\Core\Database;
 use PDO;
 use Throwable;
 
@@ -97,15 +97,15 @@ final class UserController
             $lock = $pdo->prepare('SELECT id,role,status FROM users WHERE id=:id FOR UPDATE');
             $lock->execute(['id'=>$id]);
             $current = $lock->fetch(PDO::FETCH_ASSOC);
-            if (!$current) throw new \\RuntimeException('Kullanıcı bulunamadı.');
+            if (!$current) throw new \RuntimeException('Kullanıcı bulunamadı.');
             $isSelf = $id === (int)(auth()['id'] ?? 0);
             if ($isSelf && ($role !== 'admin' || $status !== 'active')) {
-                throw new \\RuntimeException('Kendi yönetici hesabınızın rolünü veya durumunu değiştiremezsiniz.');
+                throw new \RuntimeException('Kendi yönetici hesabınızın rolünü veya durumunu değiştiremezsiniz.');
             }
             if ($current['role'] === 'admin' && $current['status'] === 'active' &&
                 ($role !== 'admin' || $status !== 'active')) {
                 $admins = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='admin' AND status='active' FOR UPDATE")->fetchColumn();
-                if ($admins <= 1) throw new \\RuntimeException('Sistemde en az bir aktif yönetici bulunmalıdır.');
+                if ($admins <= 1) throw new \RuntimeException('Sistemde en az bir aktif yönetici bulunmalıdır.');
             }
             $sql = 'UPDATE users SET name=:name,email=:email,role=:role,status=:status';
             $params = ['name'=>$name,'email'=>$email,'role'=>$role,'status'=>$status,'id'=>$id];
@@ -124,7 +124,7 @@ final class UserController
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('[AdGuard Admin] User update failed: ' . $e::class);
-            $_SESSION['error'] = $e instanceof \\RuntimeException ? $e->getMessage() : 'Kullanıcı güncellenemedi. E-posta adresi başka bir hesapta kullanılıyor olabilir.';
+            $_SESSION['error'] = $e instanceof \RuntimeException ? $e->getMessage() : 'Kullanıcı güncellenemedi. E-posta adresi başka bir hesapta kullanılıyor olabilir.';
         }
         redirect('/admin/users');
     }
@@ -148,10 +148,10 @@ final class UserController
             $stmt = $pdo->prepare('SELECT role,status FROM users WHERE id=:id FOR UPDATE');
             $stmt->execute(['id'=>$id]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$user) throw new \\RuntimeException('Kullanıcı bulunamadı.');
+            if (!$user) throw new \RuntimeException('Kullanıcı bulunamadı.');
             if ($user['role'] === 'admin' && $user['status'] === 'active' && $newStatus !== 'active') {
                 $admins = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='admin' AND status='active' FOR UPDATE")->fetchColumn();
-                if ($admins <= 1) throw new \\RuntimeException('Sistemde en az bir aktif yönetici bulunmalıdır.');
+                if ($admins <= 1) throw new \RuntimeException('Sistemde en az bir aktif yönetici bulunmalıdır.');
             }
             $pdo->prepare('UPDATE users SET status=:status WHERE id=:id')->execute(['status'=>$newStatus,'id'=>$id]);
             $pdo->commit();
@@ -159,7 +159,7 @@ final class UserController
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('[AdGuard Admin] User status update failed: ' . $e::class);
-            $_SESSION['error'] = $e instanceof \\RuntimeException ? $e->getMessage() : 'Kullanıcı durumu değiştirilemedi.';
+            $_SESSION['error'] = $e instanceof \RuntimeException ? $e->getMessage() : 'Kullanıcı durumu değiştirilemedi.';
         }
         redirect('/admin/users');
     }
