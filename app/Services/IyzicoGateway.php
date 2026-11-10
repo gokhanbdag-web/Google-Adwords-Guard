@@ -111,6 +111,22 @@ final class IyzicoGateway
         return $this->request('GET', '/v2/subscription/checkoutform/' . rawurlencode($token), []);
     }
 
+    public function verifySubscriptionWebhook(array $payload, string $signature): bool
+    {
+        $secret = (string) env('IYZICO_SECRET_KEY', '');
+        $merchantId = (string) env('IYZICO_MERCHANT_ID', '');
+        if ($secret === '' || $merchantId === '' || $signature === '') {
+            return false;
+        }
+        $message = $merchantId . $secret .
+            (string)($payload['iyziEventType'] ?? '') .
+            (string)($payload['subscriptionReferenceCode'] ?? '') .
+            (string)($payload['orderReferenceCode'] ?? '') .
+            (string)($payload['customerReferenceCode'] ?? '');
+        $expected = hash_hmac('sha256', $message, $secret);
+        return hash_equals($expected, strtolower($signature));
+    }
+
     public function cancelSubscription(string $referenceCode): array
     {
         return $this->request('POST', '/v2/subscription/subscriptions/' . rawurlencode($referenceCode) . '/cancel', [

@@ -18,7 +18,7 @@
 </section>
 <h2>Günlük kota</h2>
 <p><?= (int) ($quota['used'] ?? 0) ?> / <?= (int) ($quota['limit'] ?? 0) ?></p>
-<?php if ($currentSubscription): ?><section class="site-card"><h2>Aboneliğim</h2><p><?= e($currentSubscription['plan_name']) ?> · Bitiş: <?= e($currentSubscription['ends_at'] ?? 'Süresiz') ?></p><p>Otomatik yenileme: <strong><?= (int)$currentSubscription['auto_renew']===1?'Açık':'Kapalı' ?></strong></p><?php if ((int)$currentSubscription['auto_renew']===1): ?><form method="post" action="/payments/cancel-renewal"><?= csrf_field() ?><button type="submit">Otomatik yenilemeyi iptal et</button></form><?php endif; ?></section><?php endif; ?><h2>Web Sitelerim</h2><a class="button" href="/sites/create">Yeni Site Ekle</a>
+<h2>Web Sitelerim</h2><a class="button" href="/sites/create">Yeni Site Ekle</a>
 <?php foreach ($websites as $website): ?><article class="site-row"><strong><?= e($website['name']) ?></strong><span><?= e($website['domain']) ?></span><span><?= e($website['status']) ?></span></article><?php endforeach; ?>
 </main>
 </body></html>

@@ -190,6 +190,82 @@ final class PaymentController
         }
     }
 
+    public function iyzicoSubscriptionWebhook(): void
+    {
+        $payload = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($payload)) $payload = $_POST;
+        $signature = (string)($_SERVER['HTTP_X_IYZ_SIGNATURE_V3'] ?? '');
+        $gateway = new IyzicoGateway();
+        if (!$gateway->verifySubscriptionWebhook($payload, $signature)) {
+            http_response_code(401);
+            exit('Invalid signature');
+        }
+        $eventType = (string)($payload['iyziEventType'] ?? '');
+        $subscriptionRef = (string)($payload['subscriptionReferenceCode'] ?? '');
+        $orderRef = (string)($payload['orderReferenceCode'] ?? '');
+        $customerRef = (string)($payload['customerReferenceCode'] ?? '');
+        if (!in_array($eventType, ['subscription.order.success','subscription.order.failure'], true) ||
+            $subscriptionRef === '' || $orderRef === '' || $customerRef === '') {
+            http_response_code(400);
+            exit('Invalid event');
+        }
+        $pdo = Database::connection();
+        $eventKey = (string)($payload['iyziReferenceCode'] ?? $orderRef);
+        $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        try {
+            $pdo->beginTransaction();
+            $event = $pdo->prepare("INSERT INTO payment_webhook_events (provider,event_key,payload_hash,processing_status)
+                VALUES ('iyzico',:event,:hash,'received')");
+            try {
+                $event->execute(['event'=>$eventKey,'hash'=>$hash]);
+            } catch (\\PDOException $e) {
+                if ((int)($e->errorInfo[1] ?? 0) === 1062) {
+                    $pdo->rollBack();
+                    http_response_code(200);
+                    exit('OK');
+                }
+                throw $e;
+            }
+            $query = $pdo->prepare("SELECT s.id,s.user_id,s.plan_id,s.ends_at,p.billing_period,p.price,p.currency
+                FROM subscriptions s INNER JOIN plans p ON p.id=s.plan_id
+                WHERE s.provider_subscription_id=:reference AND s.payment_provider='iyzico'
+                ORDER BY s.id DESC LIMIT 1 FOR UPDATE");
+            $query->execute(['reference'=>$subscriptionRef]);
+            $subscription = $query->fetch(PDO::FETCH_ASSOC);
+            if (!$subscription) throw new \\RuntimeException('Local subscription not found for iyzico webhook.');
+            $status = $eventType === 'subscription.order.success' ? 'paid' : 'failed';
+            $payment = $pdo->prepare("INSERT INTO payments
+                (user_id,plan_id,subscription_id,provider,merchant_order_id,provider_payment_id,amount,currency,status,paid_at,provider_response)
+                VALUES (:user,:plan,:sub,'iyzico',:order,:order,:amount,:currency,:status,
+                    CASE WHEN :status2='paid' THEN NOW() ELSE NULL END,:response)
+                ON DUPLICATE KEY UPDATE status=VALUES(status),provider_response=VALUES(provider_response),paid_at=VALUES(paid_at)");
+            $payment->execute([
+                'user'=>$subscription['user_id'],'plan'=>$subscription['plan_id'],'sub'=>$subscription['id'],
+                'order'=>$orderRef,'amount'=>$subscription['price'],'currency'=>$subscription['currency'],
+                'status'=>$status,'status2'=>$status,'response'=>json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+            ]);
+            if ($status === 'paid') {
+                $interval = $subscription['billing_period'] === 'yearly' ? 'YEAR' : 'MONTH';
+                $pdo->exec("UPDATE subscriptions SET status='active',
+                    ends_at=DATE_ADD(GREATEST(COALESCE(ends_at,NOW()),NOW()),INTERVAL 1 {$interval})
+                    WHERE id=" . (int)$subscription['id']);
+            } else {
+                $pdo->prepare("UPDATE subscriptions SET status='suspended' WHERE id=:id AND ends_at<NOW()")
+                    ->execute(['id'=>$subscription['id']]);
+            }
+            $pdo->prepare("UPDATE payment_webhook_events SET processing_status='processed',processed_at=NOW() WHERE provider='iyzico' AND event_key=:event")
+                ->execute(['event'=>$eventKey]);
+            $pdo->commit();
+            http_response_code(200);
+            echo 'OK';
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('[AdGuard iyzico subscription webhook] '.$e::class.': '.$e->getMessage());
+            http_response_code(500);
+            echo 'Webhook processing failed';
+        }
+    }
+
     public function cancelRenewal(): void
     {
         requireAuth();
