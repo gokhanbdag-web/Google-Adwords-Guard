@@ -34,11 +34,10 @@ final class RiskScoringService
 
         $score = min(100, $score);
         $classification = (string) ($detection['classification'] ?? 'unknown');
-        if ($classification === 'known_crawler') {
-            $score = 0;
+        if ($classification === 'crawler_claimed') {
             $reasons[] = [
-                'code' => 'known_crawler_protection',
-                'description' => 'Bilinen crawler için risk puanı sıfırlandı.',
+                'code' => 'unverified_crawler_claim',
+                'description' => 'User-Agent bir bot olduğunu iddia ediyor; kimlik doğrulanmadı.',
                 'weight' => 0,
                 'details' => null
             ];
@@ -48,7 +47,7 @@ final class RiskScoringService
             'score' => $score,
             'level' => $this->getLevel($score),
             'is_suspicious' => $score >= 60,
-            'is_block_candidate' => $score >= 80,
+            'is_block_candidate' => $score >= max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80))),
             'reasons' => $reasons,
             'classification' => $classification,
             'requires_manual_review' => $score >= 60
@@ -68,8 +67,9 @@ final class RiskScoringService
 
     public function shouldCreateCandidate(array $risk, int $evidenceCount, int $minimumEvidence = 3): bool
     {
-        return (int) ($risk['score'] ?? 0) >= 80
+        $threshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
+        return (int) ($risk['score'] ?? 0) >= $threshold
             && $evidenceCount >= max(1, $minimumEvidence)
-            && ($risk['classification'] ?? '') !== 'known_crawler';
+            && !in_array(($risk['classification'] ?? ''), ['known_crawler', 'verified_crawler'], true);
     }
 }
