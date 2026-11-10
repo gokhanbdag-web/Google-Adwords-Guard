@@ -59,8 +59,14 @@ try {
 
     if ($job['job_type'] === 'google_ip_exclusion') {
         $connectionId = (int) ($payload['connection_id'] ?? 0);
-        $campaignId = (int) ($payload['campaign_id'] ?? 0);
+        $scope = (string) ($payload['scope'] ?? 'campaign');
+        $campaignId = $scope === 'account' ? 0 : (int) ($payload['campaign_id'] ?? 0);
         $ruleId = (int) ($payload['ip_rule_id'] ?? 0);
+        $confirmLive = ($payload['confirm_live'] ?? false) === true;
+
+        if (!in_array($scope, ['account', 'campaign'], true) || ($scope === 'campaign' && $campaignId <= 0)) {
+            throw new RuntimeException('Queue job has an invalid Google Ads scope.');
+        }
 
         $ruleQuery = $pdo->prepare(
             "SELECT r.id, INET6_NTOA(r.ip_address) AS ip_text
@@ -69,6 +75,7 @@ try {
              WHERE r.id = :rule_id AND r.website_id = :website_id
                AND w.user_id = :user_id
                AND r.rule_type = 'deny' AND r.status = 'active'
+               AND (r.expires_at IS NULL OR r.expires_at > NOW())
              LIMIT 1"
         );
         $ruleQuery->execute([
@@ -94,12 +101,13 @@ try {
             throw new RuntimeException('Active Google Ads connection not found.');
         }
 
+        $actionType = $scope === 'account' ? 'account_ip_exclusion' : 'ip_exclusion';
         $audit = $pdo->prepare(
             "INSERT INTO google_ads_actions
              (user_id, google_connection_id, ip_rule_id, customer_id, campaign_id,
               ip_address, action_type, status)
              VALUES (:user_id, :connection_id, :rule_id, :customer_id, :campaign_id,
-                     :ip_address, 'ip_exclusion', 'processing')"
+                     :ip_address, :action_type, 'processing')"
         );
         $audit->execute([
             'user_id' => (int) $job['user_id'],
@@ -107,25 +115,48 @@ try {
             'rule_id' => $ruleId,
             'customer_id' => $connection['customer_id'],
             'campaign_id' => $campaignId,
-            'ip_address' => $rule['ip_text']
+            'ip_address' => $rule['ip_text'],
+            'action_type' => $actionType
         ]);
         $auditId = (int) $pdo->lastInsertId();
 
         try {
-            $result = (new GoogleAdsApiService($pdo))->excludeIpForCampaign(
-                (int) $job['user_id'],
-                $connectionId,
-                $campaignId,
-                (string) $rule['ip_text']
+            $service = new GoogleAdsApiService($pdo);
+            $result = $scope === 'account'
+                ? $service->excludeIpForAccount(
+                    (int) $job['user_id'],
+                    $connectionId,
+                    (string) $rule['ip_text'],
+                    $confirmLive
+                )
+                : $service->excludeIpForCampaign(
+                    (int) $job['user_id'],
+                    $connectionId,
+                    $campaignId,
+                    (string) $rule['ip_text'],
+                    $confirmLive
+                );
+
+            $status = !empty($result['already_exists'])
+                ? 'already_exists'
+                : (!empty($result['validate_only']) ? 'validated' : 'succeeded');
+            $resourceName = $result['response']['results'][0]['resourceName'] ?? null;
+            $updateAudit = $pdo->prepare(
+                'UPDATE google_ads_actions SET status = :status, provider_resource_name = :resource WHERE id = :id'
             );
-            $status = $result['already_exists'] ? 'already_exists' : 'succeeded';
-            $updateAudit = $pdo->prepare('UPDATE google_ads_actions SET status = :status WHERE id = :id');
-            $updateAudit->execute(['status' => $status, 'id' => $auditId]);
-            $updateRule = $pdo->prepare(
-                "UPDATE ip_rules SET source = 'google_ads'
-                 WHERE id = :id AND website_id = :website_id"
-            );
-            $updateRule->execute(['id' => $ruleId, 'website_id' => (int) $job['website_id']]);
+            $updateAudit->execute([
+                'status' => $status,
+                'resource' => $resourceName,
+                'id' => $auditId
+            ]);
+
+            if ($status === 'succeeded') {
+                $updateRule = $pdo->prepare(
+                    "UPDATE ip_rules SET source = 'google_ads'
+                     WHERE id = :id AND website_id = :website_id"
+                );
+                $updateRule->execute(['id' => $ruleId, 'website_id' => (int) $job['website_id']]);
+            }
         } catch (Throwable $e) {
             $updateAudit = $pdo->prepare(
                 "UPDATE google_ads_actions SET status = 'failed', error_message = :error WHERE id = :id"
