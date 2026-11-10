@@ -14,7 +14,7 @@ Google Ads invalid-traffic monitoring and IP-risk management SaaS, built with na
 
 ## Fresh installation
 
-1. Create a MySQL database/user with least-privilege permissions.
+1. Create a MySQL database named `adguard` and a database user with least-privilege permissions.
 2. Upload the project files to the application directory.
 3. Run `composer install --no-dev --optimize-autoloader`.
 4. Import `schema.sql` into the new database.
@@ -51,9 +51,17 @@ The default `GOOGLE_ADS_WRITES_ENABLED=false` setting permits API validation onl
 
 ## Website tracking
 
-After adding a website, copy the tracking snippet shown in the Sites page into the website's HTML, preferably before the closing `</body>` tag. The script sends a minimal page-view event to the AdGuard tracking endpoint. The server validates the site key, origin, event identifier and URL before storing a visit.
+After adding a website, copy the tracking snippet shown in the Sites page into the website's HTML, preferably before the closing `</body>` tag. The script sends a minimal page-view event to the AdGuard tracking endpoint. The server validates the site key, origin, event identifier and URL before storing a visit. Stored visit data includes the server-observed IP address, user agent, page path and sanitized referrer; URL query strings and fragments are stripped to reduce accidental collection of personal data.
 
 The tracking endpoint uses the visitor IP observed by the server. Do not configure arbitrary forwarded-IP headers as trusted without a correctly configured trusted-proxy layer.
+
+## Visit data retention
+
+Set `VISIT_RETENTION_DAYS` in `.env` (default 90; allowed range 7–3650). Schedule the following CLI command daily using cron to delete older visit records in batches:
+
+`php /path/to/adguard/bin/prune-visits.php`
+
+The cleanup command runs only from the command line. Choose and disclose a retention period appropriate to your legal basis and privacy notice; the sample value is not legal advice or a claim of KVKK/GDPR compliance.
 
 ## Safety defaults
 
