@@ -16,7 +16,8 @@ $requirements = [
     'mbstring' => extension_loaded('mbstring'),
     'DOM' => extension_loaded('dom'),
 ];
-$writable = is_writable($base) && (is_writable($base . '/storage') || is_writable($base));
+$storagePath = $base . '/storage';
+$writable = is_writable($base) && (!is_dir($storagePath) || is_writable($storagePath));
 
 function h(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 
@@ -100,8 +101,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $adminPass = (string)($_POST['admin_pass'] ?? '');
         $appUrl = rtrim(trim((string)($_POST['app_url'] ?? '')), '/');
         if (!preg_match('/^[a-zA-Z0-9_]{1,64}$/', $dbName)) $errors[] = 'Veritabanı adı geçersiz.';
-        if ($dbHost === '' || $dbUser === '' || $dbPort < 1 || $dbPort > 65535) $errors[] = 'Veritabanı bağlantı bilgilerini kontrol edin.';
-        if ($adminName === '' || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL) || strlen($adminPass) < 12) $errors[] = 'Yönetici adı, e-posta veya parola geçersiz. Parola en az 12 karakter olmalı.';
+        if (!preg_match('/^[a-zA-Z0-9_.:-]{1,190}$/', $dbHost) || !preg_match('/^[a-zA-Z0-9_@.$-]{1,190}$/', $dbUser) || $dbPort < 1 || $dbPort > 65535) $errors[] = 'Veritabanı sunucusu, kullanıcı adı veya port bilgilerini kontrol edin.';
+        if ($adminName === '' || mb_strlen($adminName) > 120 || strlen($adminEmail) > 190 || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL) || strlen($adminPass) < 12) $errors[] = 'Yönetici adı, e-posta veya parola geçersiz. Parola en az 12 karakter olmalı.';
         if (!filter_var($appUrl, FILTER_VALIDATE_URL) || !in_array(parse_url($appUrl, PHP_URL_SCHEME), ['http','https'], true)) $errors[] = 'Site adresi http:// veya https:// ile başlamalı.';
         if (!$errors) {
             $pdo = null;
@@ -168,7 +169,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $success = true;
             } catch (Throwable $e) {
                 error_log('AdGuard installer: ' . $e->getMessage());
-                $errors[] = 'Kurulum tamamlanamadı: ' . h($e->getMessage());
+                $errors[] = 'Kurulum tamamlanamadı. Veritabanı bilgilerini, boş veritabanı kullandığınızı ve dosya izinlerini kontrol edin. Ayrıntı sunucu hata kaydına yazıldı.';
             }
         }
     }
