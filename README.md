@@ -2,7 +2,7 @@
 
 Google Ads invalid-traffic monitoring and IP-risk management SaaS, built with native PHP 8.2+ and MySQL 8.0+.
 
-> Current implementation status: account registration, seven-day trial provisioning, website registration, browser tracking, visit storage, initial risk scoring, quota enforcement, and manual-review IP candidates are being assembled. Google Ads OAuth and live account/IP-exclusion API operations are not yet implemented. Google Ads write operations remain disabled by default.
+> Current implementation status: account registration, seven-day trial provisioning, website registration, browser tracking, visit storage, initial risk scoring, quota enforcement, manual-review IP candidates, Google OAuth account linking, campaign listing, IP-exclusion validation, and opt-in campaign IP-exclusion writes are implemented. A live Google Ads account test is still required. Google Ads write operations remain disabled by default.
 
 ## Requirements
 
@@ -35,6 +35,20 @@ For local HTTP development only, set `SESSION_SECURE=false`. Keep it `true` in p
 - If migration 002 has not already been applied, run `migrations/002_tracking_and_ip_management.sql`, then run `migrations/003_ip_rule_service_alignment.sql`.
 - Do not run upgrade migrations on a fresh database created from the complete current `schema.sql`.
 
+## Google Ads API setup
+
+1. Create or select a Google Cloud project and enable the Google Ads API.
+2. Configure an OAuth consent screen and create a Web application OAuth client.
+3. Add the exact `GOOGLE_REDIRECT_URI` value as an authorized redirect URI.
+4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in `.env`.
+5. Set `GOOGLE_ADS_API_VERSION=v26`.
+6. Confirm that the Google Cloud project has the required Google Ads API access level for the accounts you intend to manage.
+7. Sign in to AdGuard, open Google Ads, and connect the Google account. Select the customer account and, when using a manager account, provide its manager customer ID.
+
+The Google Ads API developer-token sunset took effect on September 9, 2026. This project therefore does not require or send a developer-token header; API access is associated with the Google Cloud project that owns the OAuth credentials. Production-account access may require Explorer access or another approved access level in Google Cloud Console.
+
+The default `GOOGLE_ADS_WRITES_ENABLED=false` setting permits API validation only. To allow real campaign changes, an operator must deliberately set it to `true`; the user must also tick the live-operation confirmation for each individual IP exclusion. All operations are recorded in `google_ads_operations`. Start with validation mode and test with an account you control.
+
 ## Website tracking
 
 After adding a website, copy the tracking snippet shown in the Sites page into the website's HTML, preferably before the closing `</body>` tag. The script sends a minimal page-view event to the AdGuard tracking endpoint. The server validates the site key, origin, event identifier and URL before storing a visit.
@@ -58,5 +72,5 @@ Work is being performed on the `development/adguard-pro` branch. The `main` bran
 - Payment collection and paid-plan subscription lifecycle are not implemented.
 - Email verification and password reset are not implemented.
 - Admin plan/user management is not complete.
-- Google Ads OAuth and Google Ads API IP exclusion synchronization are not complete.
+- Live Google Ads API behavior still needs verification against a real authorized account and the access level assigned to the deploying Cloud project. Removal/rollback of IP exclusions is not yet exposed in the UI.
 - Automated tests and production deployment verification still need to be added.
