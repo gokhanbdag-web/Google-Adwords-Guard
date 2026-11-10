@@ -153,7 +153,7 @@ final class GoogleController
                           AND r.customer_id = a.customer_id
                           AND r.campaign_id = a.campaign_id
                           AND r.ip_address = a.ip_address
-                          AND r.action_type IN ('ip_exclusion_remove','account_ip_exclusion_remove')
+                          AND r.action_type IN (\'ip_exclusion_remove\',\'account_ip_exclusion_remove\')
                           AND r.status = 'succeeded'
                           AND r.id > a.id
                     ) AS is_removed
