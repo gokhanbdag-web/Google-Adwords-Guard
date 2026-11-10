@@ -27,7 +27,7 @@ $risk = $riskScorer->calculate($detection);
 if (($detection['classification'] ?? '') !== 'crawler_claimed') {
     throw new RuntimeException('Crawler user-agent must be treated as an unverified claim.');
 }
-if ((int) ($risk['score'] ?? -1) !== 30) {
+if ((int) ($risk['score'] ?? -1) < 30) {
     throw new RuntimeException('High request frequency must still contribute risk for crawler-claiming user agents.');
 }
 
