@@ -1,5 +1,5 @@
 <?php $adminTitle=$adminTitle??'Yönetim Paneli';$adminActive=$adminActive??''; ?><!doctype html>
-<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111d34"><title><?= e($adminTitle) ?> - AdGuard Pro</title><link rel="stylesheet" href="<?= e(url('/assets/app.css')) ?>"></head><body class="admin-body">
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111d34"><title><?= e($adminTitle) ?> - AdGuard Pro</title><link rel="stylesheet" href="<?= e(url('/assets/app.css?v=admin-ui-20261110-2')) ?>"></head><body class="admin-body">
 <div class="admin-sidebar-backdrop" data-admin-backdrop></div>
 <aside class="admin-sidebar" id="admin-sidebar">
 <a class="admin-brand" href="<?= e(url('/admin')) ?>">AdGuard <span>PRO</span></a>
