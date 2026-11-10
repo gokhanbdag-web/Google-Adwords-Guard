@@ -142,7 +142,8 @@ final class TrackingController
                 'user_agent' => $userAgent,
                 'page_url' => $pageUrl
             ], $recentVisits);
-            $risk = (new RiskScoringService())->calculate($detection);
+            $riskScorer = new RiskScoringService();
+            $risk = $riskScorer->calculate($detection);
 
             $insert = $this->db->prepare(
                 "INSERT INTO visits (
@@ -172,7 +173,7 @@ final class TrackingController
 
             // High-risk IPs become review candidates only after repeated evidence.
             // This does not block traffic or modify Google Ads.
-            if ($risk['is_block_candidate'] && $risk['classification'] !== 'known_crawler') {
+            if ($riskScorer->shouldCreateCandidate($risk)) {
                 $evidence = $this->db->prepare(
                     'SELECT COUNT(*) FROM visits
                      WHERE website_id = :website_id
@@ -184,7 +185,8 @@ final class TrackingController
                 $evidence->execute();
                 $evidenceCount = (int) $evidence->fetchColumn();
 
-                if ($evidenceCount >= 3) {
+                $minimumEvents = max(1, min(10000, (int) env('RISK_CANDIDATE_MIN_EVENTS', 3)));
+                if ($evidenceCount >= $minimumEvents) {
                     (new IpManagementService($this->db))->createCandidate(
                         (int) $website['user_id'],
                         (int) $website['id'],
