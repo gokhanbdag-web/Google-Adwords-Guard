@@ -28,7 +28,7 @@ final class GoogleAdsApiClient
     public function listCampaigns(string $customerId): array
     {
         $customerId = $this->normalizeCustomerId($customerId);
-        $query = "SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type
+        $query = "SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.advertising_channel_sub_type
                   FROM campaign
                   WHERE campaign.status != 'REMOVED'
                   ORDER BY campaign.name";
@@ -44,7 +44,8 @@ final class GoogleAdsApiClient
                 'id' => (string) $campaign['id'],
                 'name' => (string) ($campaign['name'] ?? ''),
                 'status' => (string) ($campaign['status'] ?? ''),
-                'channel' => (string) ($campaign['advertisingChannelType'] ?? '')
+                'channel' => (string) ($campaign['advertisingChannelType'] ?? ''),
+                'sub_channel' => (string) ($campaign['advertisingChannelSubType'] ?? '')
             ];
         }
 
