@@ -209,6 +209,16 @@ final class PaymentController
             http_response_code(400);
             exit('Invalid event');
         }
+        $providerEndDate = null;
+        if ($eventType === 'subscription.order.success') {
+            $providerDetail = $gateway->getSubscriptionDetail($subscriptionRef);
+            $providerData = $providerDetail['data'] ?? [];
+            $providerItems = $providerData['items'] ?? [];
+            $providerEndDate = (int) ($providerItems[0]['endDate'] ?? $providerData['endDate'] ?? 0);
+            if (($providerDetail['status'] ?? '') !== 'success' || $providerEndDate < 1) {
+                throw new \\RuntimeException('iyzico subscription end date could not be verified.');
+            }
+        }
         $pdo = Database::connection();
         $eventKey = (string)($payload['iyziReferenceCode'] ?? $orderRef);
         $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -245,10 +255,13 @@ final class PaymentController
                 'status'=>$status,'status2'=>$status,'response'=>json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
             ]);
             if ($status === 'paid') {
-                $interval = $subscription['billing_period'] === 'yearly' ? 'YEAR' : 'MONTH';
-                $pdo->exec("UPDATE subscriptions SET status='active',
-                    ends_at=DATE_ADD(GREATEST(COALESCE(ends_at,NOW()),NOW()),INTERVAL 1 {$interval})
-                    WHERE id=" . (int)$subscription['id']);
+                $updateSubscription = $pdo->prepare("UPDATE subscriptions
+                    SET status='active', ends_at=FROM_UNIXTIME(:end_date / 1000)
+                    WHERE id=:id");
+                $updateSubscription->execute([
+                    'end_date' => $providerEndDate,
+                    'id' => (int) $subscription['id']
+                ]);
             } else {
                 $pdo->prepare("UPDATE subscriptions SET status='suspended' WHERE id=:id AND ends_at<NOW()")
                     ->execute(['id'=>$subscription['id']]);
