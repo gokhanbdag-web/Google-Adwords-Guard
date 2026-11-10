@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace App\\Controllers;
+namespace App\Controllers;
 
-use App\\Core\\Database;
-use App\\Services\\IpManagementService;
+use App\Core\Database;
+use App\Services\IpManagementService;
 use DateTimeImmutable;
 use Throwable;
 
@@ -55,8 +55,8 @@ final class IpRuleController
 
         $expiresAt = null;
         if ($expirationInput !== '') {
-            $date = DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i', $expirationInput);
-            if (!$date || $date->format('Y-m-d\\TH:i') !== $expirationInput) {
+            $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $expirationInput);
+            if (!$date || $date->format('Y-m-d\TH:i') !== $expirationInput) {
                 $_SESSION['error'] = 'Geçerlilik tarihi hatalı.';
                 redirect('/ip-rules');
             }
