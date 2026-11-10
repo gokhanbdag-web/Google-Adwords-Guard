@@ -1,4 +1,3 @@
-Options -Indexes
 DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
@@ -8,10 +7,10 @@ DirectoryIndex index.php
     RewriteRule ^(app|bootstrap|config|database|resources|routes|vendor)(/|$) - [F,L,NC]
     RewriteRule ^(\.env|composer\.(json|lock)|README\.md|schema\.sql|seeders\.sql)(/|$) - [F,L,NC]
 
-    # Requests already targeting public assets or entry point stay there.
+    # Requests already targeting public assets or the public entry point stay there.
     RewriteRule ^public/ - [L]
 
-    # Serve the public directory when the host cannot set its document root.
+    # Forward requests to the public directory when the host cannot set its document root.
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
 
