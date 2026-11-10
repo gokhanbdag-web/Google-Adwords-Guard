@@ -15,7 +15,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 4. Set `APP_URL`, database credentials, and a unique random `APP_KEY` of at least 32 characters.
 5. Run `composer install --no-dev --optimize-autoloader`.
 6. Import `database/seeders.sql`.
-7. Apply migrations in numeric order: `database/migrations/002_tracking_and_ip_management.sql`, `003_google_ads_actions.sql`, then `004_payments_and_renewals.sql`.
+7. Apply migrations in numeric order: `database/migrations/002_tracking_and_ip_management.sql`, `003_google_ads_actions.sql`, `004_google_ads_account_exclusions.sql`, then `005_payments_and_renewals.sql`.
 8. Set the web server document root to `public/`. If your host requires the repository root, the root `.htaccess` forwards requests to `public/`; verify Apache rewrite support.
 9. Register the first account and promote it to admin with a controlled database operation:
    `UPDATE users SET role='admin' WHERE email='your-admin-email';`
