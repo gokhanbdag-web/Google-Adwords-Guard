@@ -6,7 +6,6 @@ require BASE_PATH . '/app/Autoload.php';
 
 use App\Core\Env;
 use App\Core\Database;
-use Throwable;
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
