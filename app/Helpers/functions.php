@@ -78,7 +78,7 @@ function requireCsrf(): void
 {
     $token = isset($_POST['_token']) ? (string) $_POST['_token'] : null;
 
-    if (!\\App\\Core\\Security::verifyCsrf($token)) {
+    if (!\App\Core\Security::verifyCsrf($token)) {
         http_response_code(419);
         exit('Oturum doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.');
     }
