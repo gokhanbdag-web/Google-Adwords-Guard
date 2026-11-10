@@ -48,6 +48,7 @@ The worker supports `google_ip_exclusion` jobs with JSON payload keys `connectio
 - PayTR hosted iFrame one-time checkout and iyzico Checkout Form one-time checkout are wired into customer checkout.
 - iyzico automatic renewal uses its native Subscription API. Create monthly/yearly pricing plans for local packages in iyzico and save each reference under Admin > Plans. Configure subscription notifications at `https://YOUR_DOMAIN/payments/iyzico/webhook` and enable X-IYZ-SIGNATURE-V3.
 - Set IYZICO_MERCHANT_ID, IYZICO_API_KEY, IYZICO_SECRET_KEY and IYZICO_BASE_URL. Use sandbox credentials first.
+- In the PayTR merchant panel, set the server notification/callback URL to `https://YOUR_DOMAIN/payments/paytr/callback`. Do not use the browser return URL as proof of payment.
 - PayTR automatic renewal is not enabled in this release. Its recurring path requires separate card-storage/Direct API and Non3D merchant permissions; PayTR remains available for one-time checkout.
 - Customers can cancel iyzico renewal from their dashboard. PAN/CVV are never stored by this application.
 - Test payments, callbacks, renewal notifications, cancellations and failure scenarios in sandbox before using live credentials.
