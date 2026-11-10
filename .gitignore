@@ -1,7 +1,7 @@
 /.env
-/vendor/
 /storage/logs/*
 /storage/cache/*
+/storage/installed.lock
 /.phpunit.cache/
 .DS_Store
 Thumbs.db
