@@ -53,6 +53,7 @@ jobs:
           mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/002_tracking_and_ip_management.sql
           mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/003_google_ads_actions.sql
           mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/004_google_ads_account_exclusions.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/005_payments_and_renewals.sql
 
       - name: Run risk regression tests
         run: php tests/run.php
