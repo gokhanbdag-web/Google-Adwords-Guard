@@ -1,14 +1,17 @@
-Options -Indexes
 DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
+    # Never expose application source, configuration, SQL, or environment files.
+    RewriteRule ^(app|bootstrap|config|database|install|resources|routes|storage|vendor)(/|$) - [F,L,NC]
+    RewriteRule ^(\.env|composer\.(json|lock)|README\.md|schema\.sql|seeders\.sql)(/|$) - [F,L,NC]
 
-    RewriteRule ^ index.php [QSA,L]
+    # Requests already targeting public assets or the public entry point stay there.
+    RewriteRule ^public/ - [L]
+
+    # Forward requests to the public directory when the host cannot set its document root.
+    RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
 
 <IfModule mod_headers.c>
@@ -17,7 +20,3 @@ DirectoryIndex index.php
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 </IfModule>
-
-<FilesMatch "^\.">
-    Require all denied
-</FilesMatch>
