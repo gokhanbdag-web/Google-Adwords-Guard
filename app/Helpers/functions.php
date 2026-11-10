@@ -73,3 +73,13 @@ function jsonResponse(array $data, int $status = 200): never
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
+
+function requireCsrf(): void
+{
+    $token = isset($_POST['_token']) ? (string) $_POST['_token'] : null;
+
+    if (!\\App\\Core\\Security::verifyCsrf($token)) {
+        http_response_code(419);
+        exit('Oturum doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.');
+    }
+}
