@@ -149,7 +149,7 @@ final class BotDetectionService
     {
         foreach ($signals as $signal) {
             if (($signal['classification'] ?? '') === 'crawler') {
-                return 'known_crawler';
+                return 'crawler_claimed';
             }
         }
         foreach ($signals as $signal) {
