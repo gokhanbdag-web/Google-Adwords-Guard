@@ -121,6 +121,7 @@ final class GoogleOAuthService
                 'operations' => [[
                     'create' => [
                         'campaign' => 'customers/' . $customerId . '/campaigns/' . $campaignId,
+                        'negative' => true,
                         'ipBlock' => ['ipAddress' => $ipAddress]
                     ]
                 ]],
