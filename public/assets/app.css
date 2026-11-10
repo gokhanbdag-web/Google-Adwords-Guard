@@ -26,7 +26,7 @@
 .site-mobile-toggle svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .site-mobile-toggle:focus-visible{outline:3px solid rgba(49,87,213,.25);outline-offset:2px}
 @media(max-width:760px){
- .site-header{position:relative;display:flex;align-items:center;flex-wrap:wrap;gap:0 12px;padding:13px 18px}
+ .site-header{position:relative;display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:0 12px;padding:13px 18px}
  .site-header .brand{width:auto;max-width:calc(100% - 60px);font-size:20px;line-height:1.2}
  .site-mobile-toggle{display:inline-flex;margin-left:auto}
  .site-header .site-main-nav{display:none;order:3;flex:1 0 100%;width:100%;align-items:stretch;justify-content:flex-start;gap:0;margin-top:12px;padding:8px 0;border-top:1px solid #edf0f5}
