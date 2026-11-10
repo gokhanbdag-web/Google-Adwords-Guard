@@ -1,0 +1,1 @@
+</main><footer class="admin-footer">AdGuard Pro Yönetim Paneli <span>Güvenli yönetim alanı</span></footer></div></body></html>
