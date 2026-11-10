@@ -10,7 +10,6 @@ final class GoogleOAuthService
     private string $clientId;
     private string $clientSecret;
     private string $redirectUri;
-    private string $developerToken;
 
     public function __construct()
     {
@@ -18,12 +17,8 @@ final class GoogleOAuthService
         $this->clientId = (string) ($config['client_id'] ?? '');
         $this->clientSecret = (string) ($config['client_secret'] ?? '');
         $this->redirectUri = (string) ($config['redirect_uri'] ?? '');
-        $this->developerToken = (string) ($config['developer_token'] ?? '');
         if ($this->clientId === '' || $this->clientSecret === '' || $this->redirectUri === '') {
             throw new RuntimeException('Google OAuth configuration is incomplete.');
-        }
-        if ($this->developerToken === '') {
-            throw new RuntimeException('Google Ads developer token is not configured.');
         }
     }
 
@@ -96,7 +91,8 @@ final class GoogleOAuthService
         return $this->search(
             $accessToken,
             $customerId,
-            "SELECT campaign.id, campaign.name, campaign.status
+            "SELECT campaign.id, campaign.name, campaign.status,
+                    campaign.advertising_channel_type, campaign.advertising_channel_sub_type
              FROM campaign
              WHERE campaign.status != 'REMOVED'
              ORDER BY campaign.name"
@@ -107,7 +103,8 @@ final class GoogleOAuthService
         string $accessToken,
         string $customerId,
         int $campaignId,
-        string $ipAddress
+        string $ipAddress,
+        bool $validateOnly = true
     ): array {
         $this->assertCustomerId($customerId);
         if ($campaignId <= 0 || filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -125,10 +122,138 @@ final class GoogleOAuthService
                     ]
                 ]],
                 'partialFailure' => false,
-                'validateOnly' => false
+                'validateOnly' => $validateOnly
             ],
             ['Authorization: Bearer ' . $accessToken]
         );
+    }
+
+
+    public function excludeIpFromAccount(
+        string $accessToken,
+        string $customerId,
+        string $ipAddress,
+        bool $validateOnly = true
+    ): array {
+        $this->assertCustomerId($customerId);
+        if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            throw new RuntimeException('Google Ads account IP exclusions require a valid IPv4 address.');
+        }
+
+        $escapedIp = addslashes($ipAddress);
+        $existing = $this->search(
+            $accessToken,
+            $customerId,
+            "SELECT customer_negative_criterion.resource_name
+             FROM customer_negative_criterion
+             WHERE customer_negative_criterion.type = IP_BLOCK
+               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'"
+        );
+        if ($existing !== []) {
+            return ['already_exists' => true, 'response' => null];
+        }
+
+        $all = $this->search(
+            $accessToken,
+            $customerId,
+            "SELECT customer_negative_criterion.resource_name
+             FROM customer_negative_criterion
+             WHERE customer_negative_criterion.type = IP_BLOCK"
+        );
+        if (count($all) >= 500) {
+            throw new RuntimeException('Google Ads account has reached the 500 IP exclusion limit.');
+        }
+
+        $response = $this->request(
+            'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers/' . $customerId . '/customerNegativeCriteria:mutate',
+            'POST',
+            [
+                'operations' => [['create' => ['ipBlock' => ['ipAddress' => $ipAddress]]]],
+                'partialFailure' => false,
+                'validateOnly' => $validateOnly
+            ],
+            ['Authorization: Bearer ' . $accessToken]
+        );
+        return ['already_exists' => false, 'response' => $response];
+    }
+
+    public function removeIpFromAccount(
+        string $accessToken,
+        string $customerId,
+        string $ipAddress,
+        bool $validateOnly = true
+    ): array {
+        $this->assertCustomerId($customerId);
+        if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            throw new RuntimeException('Google Ads account IP exclusions require a valid IPv4 address.');
+        }
+
+        $escapedIp = addslashes($ipAddress);
+        $existing = $this->search(
+            $accessToken,
+            $customerId,
+            "SELECT customer_negative_criterion.resource_name
+             FROM customer_negative_criterion
+             WHERE customer_negative_criterion.type = IP_BLOCK
+               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'"
+        );
+        $resourceName = (string) ($existing[0]['customerNegativeCriterion']['resourceName'] ?? '');
+        if ($resourceName === '') {
+            return ['not_found' => true, 'response' => null];
+        }
+
+        $response = $this->request(
+            'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers/' . $customerId . '/customerNegativeCriteria:mutate',
+            'POST',
+            [
+                'operations' => [['remove' => $resourceName]],
+                'partialFailure' => false,
+                'validateOnly' => $validateOnly
+            ],
+            ['Authorization: Bearer ' . $accessToken]
+        );
+        return ['not_found' => false, 'response' => $response];
+    }
+
+    public function removeIpFromCampaign(
+        string $accessToken,
+        string $customerId,
+        int $campaignId,
+        string $ipAddress,
+        bool $validateOnly = true
+    ): array {
+        $this->assertCustomerId($customerId);
+        if ($campaignId <= 0 || filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            throw new RuntimeException('Google Ads campaign IP exclusion requires a valid IPv4 address and campaign.');
+        }
+
+        $escapedIp = addslashes($ipAddress);
+        $existing = $this->search(
+            $accessToken,
+            $customerId,
+            "SELECT campaign_criterion.resource_name
+             FROM campaign_criterion
+             WHERE campaign.id = {$campaignId}
+               AND campaign_criterion.type = IP_BLOCK
+               AND campaign_criterion.status != REMOVED
+               AND campaign_criterion.ip_block.ip_address = '{$escapedIp}'"
+        );
+        $resourceName = (string) ($existing[0]['campaignCriterion']['resourceName'] ?? '');
+        if ($resourceName === '') {
+            return ['not_found' => true, 'response' => null];
+        }
+
+        $response = $this->request(
+            'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers/' . $customerId . '/campaignCriteria:mutate',
+            'POST',
+            [
+                'operations' => [['remove' => $resourceName]],
+                'partialFailure' => false,
+                'validateOnly' => $validateOnly
+            ],
+            ['Authorization: Bearer ' . $accessToken]
+        );
+        return ['not_found' => false, 'response' => $response];
     }
 
     private function tokenRequest(array $payload): array
@@ -144,9 +269,6 @@ final class GoogleOAuthService
     private function request(string $url, string $method, ?array $payload, array $headers): array
     {
         $isForm = in_array('Content-Type: application/x-www-form-urlencoded', $headers, true);
-        if (!$isForm && str_starts_with($url, 'https://googleads.googleapis.com/')) {
-            $headers[] = 'developer-token: ' . $this->developerToken;
-        }
         if ($payload !== null && !$isForm) {
             $headers[] = 'Content-Type: application/json';
         }
@@ -177,7 +299,7 @@ final class GoogleOAuthService
 
         if (!is_string($body) || $status < 200 || $status >= 300) {
             error_log('[AdGuard Google API] HTTP ' . $status . ' ' . $error . ' ' . substr((string) $body, 0, 1000));
-            throw new RuntimeException('Google Ads API request failed. Verify the developer token, account access and campaign permissions.');
+            throw new RuntimeException('Google Ads API request failed. Verify the Google Cloud project access level, OAuth configuration and account permissions.');
         }
         try {
             $decoded = json_decode($body, true, 64, JSON_THROW_ON_ERROR);
@@ -200,7 +322,7 @@ final class GoogleOAuthService
     private function apiVersion(): string
     {
         $config = require BASE_PATH . '/config/google.php';
-        $version = (string) ($config['api_version'] ?? 'v22');
+        $version = (string) ($config['api_version'] ?? 'v26');
         if (!preg_match('/^v[0-9]+$/', $version)) {
             throw new RuntimeException('Invalid Google Ads API version.');
         }
