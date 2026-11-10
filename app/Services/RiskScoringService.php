@@ -77,12 +77,10 @@ final class RiskScoringService
             $detection['classification'] ?? 'unknown'
         );
 
-        if ($classification === 'known_crawler') {
-            $score = 0;
-
+        if ($classification === 'crawler_claimed') {
             $reasons[] = [
-                'code' => 'known_crawler_protection',
-                'description' => 'Bilinen crawler için risk puanı sıfırlandı.',
+                'code' => 'unverified_crawler_claim',
+                'description' => 'User-Agent bir bot olduğunu iddia ediyor; kimlik doğrulanmadı.',
                 'weight' => 0,
                 'details' => null
             ];
