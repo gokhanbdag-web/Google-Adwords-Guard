@@ -5,6 +5,8 @@ INSERT INTO plans
 (name, slug, description, price, currency, billing_period,
  daily_visit_limit, website_limit, features, is_active, sort_order)
 VALUES
+('Deneme', 'deneme', 'Yeni hesaplar için 7 günlük ücretsiz deneme', 0.00, 'TRY',
+ 'monthly', 1000, 1, JSON_ARRAY('Trafik analizi','1 web sitesi','IP risk analizi'), 1, 0),
 ('Başlangıç', 'baslangic', 'Temel trafik analizi', 299.00, 'TRY',
  'monthly', 1000, 1, JSON_ARRAY('Ziyaret analizi','IP geçmişi'), 1, 1),
 ('Profesyonel', 'profesyonel', 'Gelişmiş trafik koruması', 799.00, 'TRY',
