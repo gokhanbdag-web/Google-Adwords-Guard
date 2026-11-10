@@ -61,3 +61,34 @@ jobs:
 
       - name: Run risk regression tests
         run: php tests/run.php
+
+      - name: Exercise browser installer without Composer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql --host=127.0.0.1 --user=root --password=root -e "CREATE DATABASE adguard_install_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+          php -S 127.0.0.1:8080 -t . >/tmp/adguard-installer.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS -c /tmp/adguard-installer.cookies http://127.0.0.1:8080/ -o /tmp/adguard-installer.html; then break; fi
+            sleep 1
+          done
+          token=$(grep -o 'name="_token" value="[^"]*"' /tmp/adguard-installer.html | head -n1 | sed 's/.*value="//;s/"$//')
+          test -n "$token"
+          curl -fsS -b /tmp/adguard-installer.cookies -c /tmp/adguard-installer.cookies \
+            --data-urlencode "_token=$token" \
+            --data-urlencode "app_url=http://127.0.0.1:8080" \
+            --data-urlencode "db_host=127.0.0.1" \
+            --data-urlencode "db_port=3306" \
+            --data-urlencode "db_name=adguard_install_test" \
+            --data-urlencode "db_user=root" \
+            --data-urlencode "db_pass=root" \
+            --data-urlencode "admin_name=Installer Test" \
+            --data-urlencode "admin_email=installer@example.test" \
+            --data-urlencode "admin_pass=InstallerTestPassword123!" \
+            http://127.0.0.1:8080/ -o /tmp/adguard-installer-result.html
+          grep -q 'Kurulum tamamlandı' /tmp/adguard-installer-result.html
+          test -f storage/installed.lock
+          count=$(mysql --host=127.0.0.1 --user=root --password=root adguard_install_test -Nse "SELECT COUNT(*) FROM users WHERE email='installer@example.test' AND role='admin';")
+          test "$count" = "1"
