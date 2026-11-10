@@ -33,8 +33,13 @@ final class Router
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $base = parse_url((string) env('APP_URL', ''), PHP_URL_PATH) ?: '';
 
-        if ($base !== '' && $base !== '/' && str_starts_with($uri, $base)) {
-            $uri = substr($uri, strlen($base)) ?: '/';
+        if ($base !== '' && $base !== '/') {
+            $base = rtrim($base, '/');
+            // Strip only a complete base-path segment, not a similarly named
+            // sibling path (for example /app versus /application).
+            if ($uri === $base || str_starts_with($uri, $base . '/')) {
+                $uri = substr($uri, strlen($base)) ?: '/';
+            }
         }
 
         $path = '/' . trim(rawurldecode($uri), '/');
