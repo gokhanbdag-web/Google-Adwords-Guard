@@ -66,6 +66,9 @@ final class TrackingController
         if ($referrer !== '' && !$this->isValidWebUrl($referrer)) {
             $referrer = '';
         }
+        // Query strings and fragments can contain emails, tokens, and other personal data.
+        $pageUrl = $this->sanitizeTrackedUrl($pageUrl);
+        $referrer = $referrer !== '' ? $this->sanitizeTrackedUrl($referrer) : '';
 
         $clientIp = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
         if (!filter_var($clientIp, FILTER_VALIDATE_IP)) {
@@ -269,6 +272,22 @@ final class TrackingController
         );
     }
 
+
+    private function sanitizeTrackedUrl(string $url): string
+    {
+        $parts = parse_url($url);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            return '';
+        }
+
+        $scheme = strtolower((string) $parts['scheme']);
+        $host = strtolower((string) $parts['host']);
+        $port = isset($parts['port']) ? ':' . (int) $parts['port'] : '';
+        $path = (string) ($parts['path'] ?? '/');
+
+        return $scheme . '://' . $host . $port . $path;
+    }
+
     private function isValidWebUrl(string $url): bool
     {
         if ($url === '' || strlen($url) > self::MAX_URL_LENGTH || filter_var($url, FILTER_VALIDATE_URL) === false) {
@@ -277,6 +296,8 @@ final class TrackingController
         $parts = parse_url($url);
         return is_array($parts)
             && isset($parts['scheme'], $parts['host'])
+            && !isset($parts['user'])
+            && !isset($parts['pass'])
             && in_array(strtolower($parts['scheme']), ['http', 'https'], true);
     }
 
