@@ -45,3 +45,12 @@ INSERT INTO menus (location,label,url,target,sort_order,is_active) SELECT 'foote
 INSERT INTO menus (location,label,url,target,sort_order,is_active) SELECT 'footer','Kullanım Şartları','/page?slug=kullanim-sartlari','_self',50,1 WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location='footer' AND url='/page?slug=kullanim-sartlari' AND label='Kullanım Şartları');
 INSERT INTO menus (location,label,url,target,sort_order,is_active) SELECT 'footer','İade ve İptal','/page?slug=iade-iptal','_self',60,1 WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location='footer' AND url='/page?slug=iade-iptal' AND label='İade ve İptal');
 INSERT INTO menus (location,label,url,target,sort_order,is_active) SELECT 'footer','İletişim','/page?slug=iletisim','_self',70,1 WHERE NOT EXISTS (SELECT 1 FROM menus WHERE location='footer' AND url='/page?slug=iletisim' AND label='İletişim');
+
+-- Editable introduction for the dynamic pricing page.
+INSERT INTO pages (title,slug,content,status,meta_title,meta_description)
+VALUES ('Paketler ve Fiyatlandırma','fiyatlandirma','<div class="ag-page-intro"><span class="ag-eyebrow">ŞEFFAF PAKETLER</span><h1>İşletmenize uygun planı seçin.</h1><p class="ag-lead">Web sitenizin trafik hacmine ve ihtiyaç duyduğunuz analiz araçlarına göre planınızı belirleyin. Paket limitleri ve özellikler aşağıda açıkça listelenir.</p></div><div class="ag-callout"><h2>Hangi plan size uygun?</h2><p>Tek bir web sitesini temel düzeyde takip etmek için başlangıç seviyesinden, daha yüksek ziyaret hacmi veya birden fazla site yönetimi için üst paketlerden yararlanabilirsiniz. Güncel fiyat ve limitler aşağıdaki plan kartlarında gösterilir.</p></div>','published','Paketler ve Fiyatlandırma | AdGuard Pro','AdGuard Pro abonelik planlarını, fiyatlarını, günlük ziyaret ve web sitesi limitlerini karşılaştırın.')
+ON DUPLICATE KEY UPDATE
+status=IF(content IS NULL OR content='','published',status),
+content=IF(content IS NULL OR content='',VALUES(content),content),
+meta_title=IF(meta_title IS NULL OR meta_title='',VALUES(meta_title),meta_title),
+meta_description=IF(meta_description IS NULL OR meta_description='',VALUES(meta_description),meta_description);
