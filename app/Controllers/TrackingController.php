@@ -179,7 +179,7 @@ final class TrackingController
                 $evidence->bindValue(':website_id', (int) $website['id'], PDO::PARAM_INT);
                 $evidence->bindValue(':ip_address', $packedIp, PDO::PARAM_LOB);
                 $evidence->execute();
-                $evidenceCount = (int) $evidence->fetchColumn() + 1;
+                $evidenceCount = (int) $evidence->fetchColumn();
 
                 if ($evidenceCount >= 3) {
                     (new IpManagementService($this->db))->createCandidate(
