@@ -10,7 +10,10 @@ $visibleHeaderMenus = array_values(array_filter($headerMenus, static function (a
 ?>
 <header class="site-header">
     <a class="brand" href="<?= e(url('/')) ?>"><?= e($siteName ?? 'AdGuard Pro') ?></a>
-    <nav class="site-main-nav" aria-label="Ana menü">
+    <button class="site-mobile-toggle" type="button" aria-label="Menüyü aç" aria-expanded="false" aria-controls="site-mobile-menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <nav class="site-main-nav" id="site-mobile-menu" aria-label="Ana menü">
         <?php foreach ($visibleHeaderMenus as $item): ?>
             <a href="<?= e(menu_href((string)($item['url'] ?? '/'))) ?>"
                target="<?= e(($item['target'] ?? '_self') === '_blank' ? '_blank' : '_self') ?>"
@@ -36,3 +39,20 @@ $visibleHeaderMenus = array_values(array_filter($headerMenus, static function (a
         <?php endif; ?>
     </div>
 </header>
+<script>
+(() => {
+    const header = document.querySelector('.site-header');
+    if (!header) return;
+    const toggle = header.querySelector('.site-mobile-toggle');
+    if (!toggle) return;
+    const setOpen = (open) => {
+        header.classList.toggle('is-menu-open', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-label', open ? 'Menüyü kapat' : 'Menüyü aç');
+    };
+    toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+    header.querySelectorAll('.site-main-nav a, .site-account a').forEach((link) => link.addEventListener('click', () => setOpen(false)));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 760) setOpen(false); });
+})();
+</script>
