@@ -8,7 +8,7 @@
 </head>
 <body>
 <main class="container">
-    <h1>Sitelerim</h1>
+    <h1>Sitelerim</h1>\n    <a href="/dashboard">Kontrol Paneli</a>\n    <a href="/ip-rules">IP Yönetimi</a>
     <a class="button" href="/sites/create">Yeni Site Ekle</a>
     <a href="/dashboard">Kontrol Paneli</a>
 
