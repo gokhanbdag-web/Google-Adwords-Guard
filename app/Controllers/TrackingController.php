@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace App\\Controllers;
+namespace App\Controllers;
 
-use App\\Services\\BotDetectionService;
-use App\\Services\\IpManagementService;
-use App\\Services\\QuotaService;
-use App\\Services\\RiskScoringService;
+use App\Services\BotDetectionService;
+use App\Services\IpManagementService;
+use App\Services\QuotaService;
+use App\Services\RiskScoringService;
 use PDO;
 use PDOException;
 use Throwable;
