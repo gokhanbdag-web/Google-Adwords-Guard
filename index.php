@@ -11,8 +11,8 @@ if (!is_file($autoload)) {
 }
 require $autoload;
 
-use App\\Core\\Env;
-use App\\Core\\Router;
+use App\Core\Env;
+use App\Core\Router;
 
 try {
     Env::load(BASE_PATH . '/.env');
