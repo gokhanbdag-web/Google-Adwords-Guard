@@ -115,7 +115,7 @@ final class RiskScoringService
         ?int $minimumSignals = null
     ): bool {
         $threshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
-        $minimumSignals = $minimumSignals ?? max(1, min(100, (int) env('RISK_CANDIDATE_MIN_EVENTS', 3)));
+        $minimumSignals = $minimumSignals ?? max(1, min(100, (int) env('RISK_CANDIDATE_MIN_SIGNALS', 3)));
 
         return
             (int) ($risk['score'] ?? 0) >= $threshold &&
