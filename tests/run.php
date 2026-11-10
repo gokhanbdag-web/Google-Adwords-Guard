@@ -8,7 +8,6 @@ use App\Services\RiskScoringService;
 use App\Services\IyzicoGateway;
 use App\Services\PaytrGateway;
 
-require dirname(__DIR__) . '/app/Helpers/functions.php';
 
 $detector = new BotDetectionService();
 $scorer = new RiskScoringService();
