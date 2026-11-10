@@ -9,7 +9,7 @@
 <body>
 <main class="auth-container">
     <h1>Yeni Web Sitesi</h1>
-    <p><a href="/dashboard">Kontrol Paneli</a> · <a href="/ip-rules">IP Yönetimi</a></p>
+    <p><a href="/dashboard">Kontrol Paneli</a> · <a href="/ip-rules">IP Yönetimi</a> · <a href="/google">Google Ads</a></p>
 
     <?php if (!empty($_SESSION['error'])): ?>
         <p class="alert"><?= e($_SESSION['error']) ?></p>
