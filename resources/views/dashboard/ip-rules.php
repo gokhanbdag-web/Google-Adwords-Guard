@@ -89,6 +89,21 @@
             <?php endif; ?>
         </article>
     <?php endforeach; ?>
+
+    <h2>IP kuralı işlem geçmişi</h2>
+    <?php if (!$history): ?>
+        <p>Henüz IP kuralı değişikliği kaydı yok.</p>
+    <?php else: ?>
+        <?php foreach ($history as $item): ?>
+            <article class="site-card">
+                <strong><?= e($item['ip_address']) ?></strong>
+                <p><?= e($item['website_name']) ?> · İşlem: <?= e($item['action']) ?> · <?= e($item['created_at']) ?></p>
+                <p>Durum: <?= e($item['old_status'] ?? '—') ?> → <?= e($item['new_status'] ?? '—') ?></p>
+                <p><?= e($item['reason'] ?? '') ?></p>
+            </article>
+        <?php endforeach; ?>
+    <?php endif; ?>
+
 </main>
 </body>
 </html>
