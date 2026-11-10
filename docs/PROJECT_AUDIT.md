@@ -19,7 +19,7 @@ No existing application files have been deleted or overwritten during this audit
 6. **IP service/schema mismatch:** IpManagementService queries and writes ip_rules columns user_id, risk_score, evidence_count, and expires_at, and permits website_id IS NULL. The current schema defines none of those columns and makes website_id NOT NULL.
 7. **Subscription schema mismatch:** QuotaService reads subscriptions.current_period_end, but schema.sql defines ends_at.
 8. **Tracking is incomplete:** TrackingController stores every accepted visit with risk_score=0 and risk_level='low'; it does not invoke BotDetectionService, RiskScoringService, QuotaService, or IpManagementService. No tracker.js asset is present in the tracked root files, although the sites template emits a tracker.js URL.
-9. **Google Ads integration:** OAuth multi-account linking, encrypted token storage/refresh, campaign listing, campaign IP-exclusion validation, opt-in live mutation, and operation audit logging have now been added. A real Google Ads account/API access test is still required.
+9. **Google Ads integration:** OAuth multi-account linking, encrypted token storage/refresh, campaign listing, account-wide and campaign-level IP-exclusion validation, opt-in live mutation, rollback, and operation audit logging have now been added. A real Google Ads account/API access test is still required.
 10. **Potential destructive database setup:** schema.sql drops existing tables before recreating them. It must be clearly treated as a fresh-install script and must not be run against an existing production database.
 
 ## Existing useful components
