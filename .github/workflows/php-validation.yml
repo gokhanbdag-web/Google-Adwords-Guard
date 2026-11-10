@@ -46,9 +46,8 @@ jobs:
             php -l "$file"
           done < <(find app bootstrap config install public routes resources bin tests -type f -name '*.php' -print0)
 
-      - name: Verify Composer-free runtime autoloader
-        run: |
-          php -r "define('BASE_PATH', getcwd()); require 'app/Autoload.php'; if (!class_exists('App\\\\Core\\\\Router') || !function_exists('env')) { exit(1); } echo 'Standalone autoloader passed.' . PHP_EOL;"
+      - name: Verify Composer-free runtime autoloader and subdirectory URLs
+        run: php tests/runtime_autoload.php
 
       - name: Import fresh MySQL schema and seeders
         run: |
