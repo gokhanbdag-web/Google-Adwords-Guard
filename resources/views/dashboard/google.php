@@ -137,6 +137,19 @@
                 <p>Müşteri: <?= e($item['customer_id']) ?> · Kapsam: <?= $item['campaign_id'] === 'ACCOUNT' ? 'Hesap geneli' : e($item['campaign_id']) ?></p>
                 <p>İşlem: <?= e($item['action']) ?> · Sonuç: <?= e($item['status']) ?> · <?= e($item['created_at']) ?></p>
                 <?php if (!empty($item['error_message'])): ?><p class="alert"><?= e($item['error_message']) ?></p><?php endif; ?>
+                <?php if ($item['action'] === 'create' && $item['status'] === 'succeeded'): ?>
+                    <form method="post" action="/google/remove">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="operation_id" value="<?= (int) $item['id'] ?>">
+                        <?php if ($writesEnabled): ?>
+                            <label><input type="checkbox" name="confirm_live" value="1" required> Bu hariç tutmayı Google Ads hesabından gerçekten kaldırmayı onaylıyorum.</label>
+                            <button type="submit">Google Ads'ten kaldır</button>
+                        <?php else: ?>
+                            <p>Güvenli mod: yalnızca kaldırma doğrulaması yapılır.</p>
+                            <button type="submit">Kaldırmayı doğrula (dry-run)</button>
+                        <?php endif; ?>
+                    </form>
+                <?php endif; ?>
             </article>
         <?php endforeach; ?>
     <?php endif; ?>
