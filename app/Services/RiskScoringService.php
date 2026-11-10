@@ -70,6 +70,7 @@ final class RiskScoringService
         $threshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
         return (int) ($risk['score'] ?? 0) >= $threshold
             && $evidenceCount >= max(1, $minimumEvidence)
+            && count($risk['reasons'] ?? []) >= max(1, (int) env('RISK_CANDIDATE_MIN_SIGNALS', 3))
             && !in_array(($risk['classification'] ?? ''), ['known_crawler', 'verified_crawler'], true);
     }
 }
