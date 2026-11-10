@@ -216,7 +216,7 @@ final class PaymentController
             $providerItems = $providerData['items'] ?? [];
             $providerEndDate = (int) ($providerItems[0]['endDate'] ?? $providerData['endDate'] ?? 0);
             if (($providerDetail['status'] ?? '') !== 'success' || $providerEndDate < 1) {
-                throw new \\RuntimeException('iyzico subscription end date could not be verified.');
+                throw new \RuntimeException('iyzico subscription end date could not be verified.');
             }
         }
         $pdo = Database::connection();
