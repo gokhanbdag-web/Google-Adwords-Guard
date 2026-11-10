@@ -21,16 +21,23 @@ final class TrackingController
 
     public function handle(): void
     {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+            http_response_code(204);
+            header('Access-Control-Allow-Methods: POST, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type');
+            header('Access-Control-Max-Age: 600');
+            return;
+        }
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
             $this->respond(405, ['success' => false, 'message' => 'Method not allowed.']);
             return;
         }
 
-        if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > self::MAX_BODY_SIZE) {
+        $length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        if ($length > self::MAX_BODY_SIZE) {
             $this->respond(413, ['success' => false, 'message' => 'Request too large.']);
             return;
         }
-
         $raw = file_get_contents('php://input', false, null, 0, self::MAX_BODY_SIZE + 1);
         if ($raw === false || strlen($raw) > self::MAX_BODY_SIZE) {
             $this->respond(400, ['success' => false, 'message' => 'Invalid request.']);
@@ -38,18 +45,19 @@ final class TrackingController
         }
 
         $contentType = strtolower(trim(explode(';', (string) ($_SERVER['CONTENT_TYPE'] ?? ''))[0]));
-        if (!in_array($contentType, ['application/json', 'text/plain'], true)) {
+        if ($contentType === 'application/json') {
+            try {
+                $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                $this->respond(400, ['success' => false, 'message' => 'Invalid JSON.']);
+                return;
+            }
+        } elseif ($contentType === 'application/x-www-form-urlencoded') {
+            parse_str($raw, $data);
+        } else {
             $this->respond(415, ['success' => false, 'message' => 'Unsupported content type.']);
             return;
         }
-
-        try {
-            $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            $this->respond(400, ['success' => false, 'message' => 'Invalid JSON.']);
-            return;
-        }
-
         if (!is_array($data)) {
             $this->respond(400, ['success' => false, 'message' => 'Invalid payload.']);
             return;
@@ -124,12 +132,12 @@ final class TrackingController
             $recentQuery->execute(['website_id' => (int) $website['id'], 'ip_address' => $packedIp]);
             $recent = $recentQuery->fetchAll(PDO::FETCH_ASSOC);
 
-            $detection = (new BotDetectionService())->analyze(
-                ['user_agent' => $userAgent, 'page_url' => $pageUrl],
-                $recent
-            );
-            $riskService = new RiskScoringService();
-            $risk = $riskService->calculate($detection);
+            $visitData = [
+                'user_agent' => $userAgent,
+                'page_url' => $pageUrl
+            ];
+            $detection = (new BotDetectionService())->analyze($visitData, $recent);
+            $risk = (new RiskScoringService())->calculate($detection);
 
             $insert = $this->db->prepare(
                 'INSERT INTO visits
@@ -148,12 +156,12 @@ final class TrackingController
                 'referrer' => $referrer !== '' ? $referrer : null,
                 'risk_score' => $risk['score'],
                 'risk_level' => $risk['level'],
-                'reasons' => json_encode($risk['reasons'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'reasons' => json_encode($risk['reasons'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                 'is_suspicious' => $risk['is_suspicious'] ? 1 : 0
             ]);
             $visitId = (int) $this->db->lastInsertId();
 
-            if ($riskService->shouldCreateCandidate($risk, 3)) {
+            if ((new RiskScoringService())->shouldCreateCandidate($risk, 3)) {
                 (new IpManagementService($this->db))->createCandidate(
                     (int) $website['user_id'],
                     (int) $website['id'],
@@ -175,6 +183,10 @@ final class TrackingController
         } catch (PDOException $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
+            }
+            if ($e->getCode() === '23000') {
+                $this->respond(200, ['success' => true, 'duplicate' => true]);
+                return;
             }
             error_log('[AdGuard Tracking] Database error: ' . $e->getCode());
             $this->respond(500, ['success' => false, 'message' => 'Tracking service temporarily unavailable.']);
@@ -218,16 +230,12 @@ final class TrackingController
     {
         $parts = parse_url($origin);
         if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host']) ||
-            !in_array(strtolower($parts['scheme']), ['http', 'https'], true) ||
-            isset($parts['user']) || isset($parts['pass'])) {
+            !in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
             return false;
         }
         $host = strtolower(rtrim($parts['host'], '.'));
         $domain = strtolower(trim($domain));
-        if ($host === '' || $domain === '') {
-            return false;
-        }
-        if (filter_var($host, FILTER_VALIDATE_IP)) {
+        if ($host === '' || $domain === '' || filter_var($host, FILTER_VALIDATE_IP)) {
             return hash_equals($domain, $host);
         }
         return $host === $domain || str_ends_with($host, '.' . $domain);
@@ -248,7 +256,7 @@ final class TrackingController
     {
         header('Access-Control-Allow-Origin: ' . $origin);
         header('Vary: Origin');
-        header('Access-Control-Allow-Methods: POST');
+        header('Access-Control-Allow-Methods: POST, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type');
         header('Access-Control-Max-Age: 600');
     }
