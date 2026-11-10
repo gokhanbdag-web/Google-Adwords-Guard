@@ -264,7 +264,10 @@ final class IpManagementService
 
         $riskScore = max(0, min(100, $riskScore));
 
-        if ($riskScore < 80 || $evidenceCount < 3) {
+        $threshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
+        $minimumEvents = max(1, min(10000, (int) env('RISK_CANDIDATE_MIN_EVENTS', 3)));
+
+        if ($riskScore < $threshold || $evidenceCount < $minimumEvents) {
             return null;
         }
 
