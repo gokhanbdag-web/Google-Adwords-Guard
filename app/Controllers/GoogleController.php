@@ -152,7 +152,8 @@ final class GoogleController
         $actionsQuery->execute(['user_id' => $userId, 'connection_id' => $connectionId]);
         $actions = $actionsQuery->fetchAll(PDO::FETCH_ASSOC);
 
-        $writesEnabled = (bool) (require BASE_PATH . '/config/google.php')['writes_enabled'];
+        $googleConfig = require BASE_PATH . '/config/google.php';
+        $writesEnabled = (bool) ($googleConfig['writes_enabled'] ?? false);
         require BASE_PATH . '/resources/views/dashboard/google-campaigns.php';
     }
 
@@ -337,6 +338,33 @@ final class GoogleController
             $_SESSION['error'] = 'Google Ads IP hariç tutması kaldırılamadı. API erişimini kontrol edin.';
         }
 
+        redirect('/google');
+    }
+
+    public function setManager(): void
+    {
+        requireAuth();
+        $userId = (int) auth()['id'];
+        $connectionId = (int) ($_POST['id'] ?? 0);
+        $managerInput = trim((string) ($_POST['login_customer_id'] ?? ''));
+        $managerId = $managerInput === '' ? null : preg_replace('/[^0-9]/', '', $managerInput);
+
+        if ($managerId !== null && !preg_match('/^[0-9]{6,20}$/', $managerId)) {
+            $_SESSION['error'] = 'Yönetici müşteri numarası geçersiz.';
+            redirect('/google');
+        }
+
+        $statement = Database::connection()->prepare(
+            'UPDATE google_connections
+             SET login_customer_id = :manager_id
+             WHERE id = :id AND user_id = :user_id'
+        );
+        $statement->execute([
+            'manager_id' => $managerId,
+            'id' => $connectionId,
+            'user_id' => $userId
+        ]);
+        $_SESSION['success'] = 'Yönetici müşteri numarası güncellendi.';
         redirect('/google');
     }
 
