@@ -32,7 +32,7 @@ For local HTTP development only, set `SESSION_SECURE=false`. Keep it `true` in p
 
 - `schema.sql` is for fresh installations. It no longer drops existing tables.
 - Existing installations based on the earlier schema must take a database backup first.
-- If migration 002 has not already been applied, run `migrations/002_tracking_and_ip_management.sql`, then run `migrations/003_ip_rule_service_alignment.sql`.
+- If migration 002 has not already been applied, run `migrations/002_tracking_and_ip_management.sql`, then run `migrations/003_ip_rule_service_alignment.sql` and `migrations/004_google_ads_connections_and_audit.sql`.
 - Do not run upgrade migrations on a fresh database created from the complete current `schema.sql`.
 
 ## Google Ads API setup
