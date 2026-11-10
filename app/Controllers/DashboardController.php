@@ -35,6 +35,12 @@ final class DashboardController
         $todayVisits = (int) $stats['total'];
         $suspiciousVisits = (int) $stats['suspicious'];
         $quota = (new QuotaService($pdo))->getUsage($userId);
+        $subscriptionQuery = $pdo->prepare("SELECT s.id,s.status,s.starts_at,s.ends_at,s.auto_renew,s.payment_provider,p.name AS plan_name
+            FROM subscriptions s INNER JOIN plans p ON p.id=s.plan_id
+            WHERE s.user_id=:user AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>=NOW())
+            ORDER BY s.id DESC LIMIT 1");
+        $subscriptionQuery->execute(['user'=>$userId]);
+        $currentSubscription = $subscriptionQuery->fetch() ?: null;
 
         require BASE_PATH . '/resources/views/dashboard/index.php';
     }

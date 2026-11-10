@@ -56,7 +56,7 @@ final class IyzicoGateway
         }
         return [
             'token' => (string) $response['token'],
-            'content' => (string) ($response['checkoutFormContent'] ?? ''),
+            'content' => (string) ($response['checkoutFormContent'] ?? $response['htmlContent'] ?? ''),
             'payment_page_url' => (string) ($response['paymentPageUrl'] ?? '')
         ];
     }
@@ -109,6 +109,13 @@ final class IyzicoGateway
     public function retrieveSubscription(string $token): array
     {
         return $this->request('GET', '/v2/subscription/checkoutform/' . rawurlencode($token), []);
+    }
+
+    public function cancelSubscription(string $referenceCode): array
+    {
+        return $this->request('POST', '/v2/subscription/subscriptions/' . rawurlencode($referenceCode) . '/cancel', [
+            'subscriptionReferenceCode' => $referenceCode
+        ]);
     }
 
     private function request(string $method, string $path, array $payload): array

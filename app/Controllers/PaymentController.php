@@ -190,6 +190,38 @@ final class PaymentController
         }
     }
 
+    public function cancelRenewal(): void
+    {
+        requireAuth();
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare("SELECT id,payment_provider,provider_subscription_id FROM subscriptions
+            WHERE user_id=:user AND status='active' AND auto_renew=1 AND ends_at>NOW()
+            ORDER BY id DESC LIMIT 1");
+        $stmt->execute(['user'=>(int)auth()['id']]);
+        $subscription = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$subscription) {
+            $_SESSION['error'] = 'Otomatik yenilenen aktif bir abonelik bulunamadı.';
+            redirect('/dashboard');
+        }
+        try {
+            if ($subscription['payment_provider'] !== 'iyzico' || empty($subscription['provider_subscription_id'])) {
+                throw new \\RuntimeException('Bu sağlayıcı için otomatik yenileme iptal API akışı henüz etkin değil.');
+            }
+            $result = (new IyzicoGateway())->cancelSubscription((string)$subscription['provider_subscription_id']);
+            if (($result['status'] ?? '') !== 'success') {
+                throw new \\RuntimeException('iyzico abonelik iptalini onaylamadı.');
+            }
+            $pdo->prepare("UPDATE subscriptions SET auto_renew=0,cancelled_at=NOW(),cancellation_reason='customer_request'
+                WHERE id=:id AND user_id=:user")
+                ->execute(['id'=>$subscription['id'],'user'=>(int)auth()['id']]);
+            $_SESSION['success'] = 'Otomatik yenileme iptal edildi. Mevcut dönem sonuna kadar hizmetiniz devam eder.';
+        } catch (Throwable $e) {
+            error_log('[AdGuard Renewal Cancellation] '.$e::class.': '.$e->getMessage());
+            $_SESSION['error'] = 'Otomatik yenileme iptal edilemedi. Lütfen destek ile iletişime geçin.';
+        }
+        redirect('/dashboard');
+    }
+
     public function returnPage(): void
     {
         requireAuth();
