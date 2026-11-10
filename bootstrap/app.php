@@ -18,9 +18,11 @@ date_default_timezone_set($app['timezone'] ?? 'UTC');
 
 if (PHP_SAPI !== 'cli' && session_status() !== PHP_SESSION_ACTIVE) {
     session_name($app['session']['name'] ?? 'adguard_session');
+    $sessionPath = parse_url((string) env('APP_URL', ''), PHP_URL_PATH) ?: '/';
+    $sessionPath = rtrim($sessionPath, '/') ?: '/';
     session_set_cookie_params([
         'lifetime' => 0,
-        'path' => '/',
+        'path' => $sessionPath,
         'secure' => (bool) ($app['session']['secure'] ?? true),
         'httponly' => true,
         'samesite' => $app['session']['samesite'] ?? 'Lax'
