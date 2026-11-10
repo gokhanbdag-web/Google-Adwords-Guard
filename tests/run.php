@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-use App\\Services\\BotDetectionService;
-use App\\Services\\RiskScoringService;
+use App\Services\BotDetectionService;
+use App\Services\RiskScoringService;
 
 $botDetector = new BotDetectionService();
 $riskScorer = new RiskScoringService();
