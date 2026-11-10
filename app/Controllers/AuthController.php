@@ -9,6 +9,10 @@ final class AuthController
 {
     public function showLogin(): void
     {
+        if (auth()) {
+            redirect(isAdmin() ? '/admin' : '/dashboard');
+        }
+
         require BASE_PATH . '/resources/views/auth/login.php';
     }
 
@@ -120,6 +124,6 @@ final class AuthController
         }
 
         session_destroy();
-        redirect('/login');
+        redirect('/');
     }
 }
