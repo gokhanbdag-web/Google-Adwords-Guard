@@ -90,7 +90,7 @@
             <p><?= e($action['action_type']) ?> · <?= $action['campaign_id'] === '0' || (int) $action['campaign_id'] === 0 ? 'Hesap geneli' : 'Kampanya ' . e($action['campaign_id']) ?></p>
             <p>Durum: <?= e($action['status']) ?> · <?= e($action['created_at']) ?></p>
             <?php if (!empty($action['error_message'])): ?><p class="alert"><?= e($action['error_message']) ?></p><?php endif; ?>
-            <?php if (in_array($action['action_type'], ['ip_exclusion', 'account_ip_exclusion'], true) && $action['status'] === 'succeeded'): ?>
+            <?php if (in_array($action['action_type'], ['ip_exclusion', 'account_ip_exclusion'], true) && $action['status'] === 'succeeded' && empty($action['is_removed'])): ?>
                 <form method="post" action="/google/remove">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action_id" value="<?= (int) $action['id'] ?>">
