@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Giriş Yap - AdGuard</title>
+    <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="auth-container">
+    <h1>AdGuard</h1>
+    <h2>Hesabınıza giriş yapın</h2>
+
+    <?php if (!empty($_SESSION['error'])): ?>
+        <p class="alert"><?= e($_SESSION['error']) ?></p>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
+    <form method="post" action="/login">
+        <?= csrf_field() ?>
+        <label>E-posta</label>
+        <input type="email" name="email" autocomplete="email" required>
+
+        <label>Şifre</label>
+        <input type="password" name="password" autocomplete="current-password" required>
+
+        <button type="submit">Giriş Yap</button>
+    </form>
+
+    <p>Hesabınız yok mu? <a href="/register">Kayıt olun</a></p>
+</main>
+</body>
+</html>

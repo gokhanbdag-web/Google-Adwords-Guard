@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kayıt Ol - AdGuard</title>
+    <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="auth-container">
+    <h1>AdGuard</h1>
+    <h2>Yeni hesap oluşturun</h2>
+
+    <?php if (!empty($_SESSION['error'])): ?>
+        <p class="alert"><?= e($_SESSION['error']) ?></p>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
+    <form method="post" action="/register">
+        <?= csrf_field() ?>
+
+        <label>Ad Soyad</label>
+        <input type="text" name="name" maxlength="120" autocomplete="name" required>
+
+        <label>E-posta</label>
+        <input type="email" name="email" autocomplete="email" required>
+
+        <label>Şifre (en az 12 karakter)</label>
+        <input type="password" name="password" minlength="12" autocomplete="new-password" required>
+
+        <label>Şifre Tekrar</label>
+        <input type="password" name="password_confirmation" minlength="12" autocomplete="new-password" required>
+
+        <button type="submit">Kayıt Ol</button>
+    </form>
+
+    <p>Hesabınız var mı? <a href="/login">Giriş yapın</a></p>
+</main>
+</body>
+</html>
