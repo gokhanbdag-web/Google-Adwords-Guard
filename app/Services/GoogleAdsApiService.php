@@ -63,6 +63,24 @@ final class GoogleAdsApiService
         }
 
         $escapedIp = addslashes($ipAddress);
+        $accountLevelExisting = $this->oauth->search(
+            $accessToken,
+            $customerId,
+            "SELECT customer_negative_criterion.resource_name
+             FROM customer_negative_criterion
+             WHERE customer_negative_criterion.type = IP_BLOCK
+               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'",
+            $loginCustomerId
+        );
+        if ($accountLevelExisting !== []) {
+            return [
+                'already_exists' => true,
+                'inherited_from_account' => true,
+                'validate_only' => $validateOnly,
+                'response' => null
+            ];
+        }
+
         $existing = $this->oauth->search(
             $accessToken,
             $customerId,
