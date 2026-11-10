@@ -74,7 +74,7 @@ final class PageController
         return [
             'title' => $title,
             'slug' => $slug,
-            'content' => $content,
+            'content' => sanitize_html($content),
             'status' => $status,
             'meta_title' => $metaTitle !== '' ? $metaTitle : null,
             'meta_description' => $metaDescription !== '' ? $metaDescription : null
