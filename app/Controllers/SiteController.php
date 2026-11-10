@@ -33,6 +33,7 @@ final class SiteController
     public function store(): void
     {
         requireAuth();
+        requireCsrf();
 
         $name = trim((string) ($_POST['name'] ?? ''));
         $domain = strtolower(trim((string) ($_POST['domain'] ?? '')));
