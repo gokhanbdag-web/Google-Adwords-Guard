@@ -318,6 +318,120 @@ final class GoogleController
         redirect('/google');
     }
 
+
+    public function removeIpExclusion(): void
+    {
+        requireAuth();
+        requireCsrf();
+
+        $userId = (int) auth()['id'];
+        $operationId = (int) ($_POST['operation_id'] ?? 0);
+        $pdo = Database::connection();
+        $connectionId = 0;
+        $customerId = '';
+        $campaignId = '';
+        $ipAddress = '';
+        $validateOnly = true;
+
+        try {
+            $source = $pdo->prepare(
+                "SELECT id, connection_id, customer_id, campaign_id,
+                        INET6_NTOA(ip_address) AS ip_address
+                 FROM google_ads_operations
+                 WHERE id = :id
+                   AND user_id = :user_id
+                   AND action = 'create'
+                   AND status = 'succeeded'
+                 LIMIT 1"
+            );
+            $source->execute(['id' => $operationId, 'user_id' => $userId]);
+            $operation = $source->fetch(PDO::FETCH_ASSOC);
+
+            if (!$operation) {
+                throw new \RuntimeException('Kaldırılabilecek başarılı bir IP hariç tutma işlemi bulunamadı.');
+            }
+
+            $connectionId = (int) $operation['connection_id'];
+            $customerId = (string) $operation['customer_id'];
+            $campaignId = (string) $operation['campaign_id'];
+            $ipAddress = (string) $operation['ip_address'];
+
+            $connectionQuery = $pdo->prepare(
+                "SELECT id, customer_id, login_customer_id
+                 FROM google_connections
+                 WHERE id = :id AND user_id = :user_id AND status = 'active'
+                 LIMIT 1"
+            );
+            $connectionQuery->execute(['id' => $connectionId, 'user_id' => $userId]);
+            $connection = $connectionQuery->fetch(PDO::FETCH_ASSOC);
+
+            if (!$connection || (string) $connection['customer_id'] !== $customerId) {
+                throw new \RuntimeException('Google Ads bağlantısı artık aktif değil.');
+            }
+
+            $config = require BASE_PATH . '/config/google.php';
+            $writesEnabled = (bool) ($config['writes_enabled'] ?? false);
+            $confirmed = (string) ($_POST['confirm_live'] ?? '') === '1';
+            $validateOnly = !($writesEnabled && $confirmed);
+
+            $oauth = new GoogleOAuthService($pdo);
+            $accessToken = $oauth->connectionAccessToken($userId, $customerId);
+            $api = new GoogleAdsApiClient(
+                $accessToken,
+                (string) ($config['api_version'] ?? 'v26'),
+                $connection['login_customer_id'] ?: null
+            );
+
+            $response = $campaignId === 'ACCOUNT'
+                ? $api->removeAccountIpExclusion($customerId, $ipAddress, $validateOnly)
+                : $api->removeCampaignIpExclusion($customerId, $campaignId, $ipAddress, $validateOnly);
+
+            $status = !empty($response['not_found'])
+                ? 'not_found'
+                : ($validateOnly ? 'validated' : 'succeeded');
+
+            $this->logOperation(
+                $pdo,
+                $userId,
+                $connectionId,
+                $customerId,
+                $campaignId,
+                $ipAddress,
+                'remove',
+                $status,
+                ['ip_address' => $ipAddress, 'campaign_id' => $campaignId, 'remove' => true, 'validate_only' => $validateOnly],
+                $response,
+                null
+            );
+
+            $_SESSION['success'] = !empty($response['not_found'])
+                ? 'Bu IP hariç tutması Google Ads hesabında bulunamadı.'
+                : ($validateOnly
+                    ? 'Google Ads kaldırma doğrulaması başarılı. Canlı değişiklik yapılmadı.'
+                    : 'IP hariç tutması Google Ads hesabından kaldırıldı.');
+        } catch (Throwable $exception) {
+            if ($connectionId > 0 && $customerId !== '' && $campaignId !== '' && $ipAddress !== '') {
+                $this->logOperation(
+                    $pdo,
+                    $userId,
+                    $connectionId,
+                    $customerId,
+                    $campaignId,
+                    $ipAddress,
+                    'remove',
+                    'failed',
+                    ['ip_address' => $ipAddress, 'campaign_id' => $campaignId, 'remove' => true, 'validate_only' => $validateOnly],
+                    null,
+                    $exception->getMessage()
+                );
+            }
+            error_log('[AdGuard Google Ads Remove] ' . $exception->getMessage());
+            $_SESSION['error'] = $exception->getMessage();
+        }
+
+        redirect('/google');
+    }
+
     private function logOperation(
         PDO $pdo,
         int $userId,
