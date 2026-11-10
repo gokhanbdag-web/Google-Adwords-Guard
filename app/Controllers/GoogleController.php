@@ -119,6 +119,16 @@ final class GoogleController
 
         try {
             $campaigns = (new GoogleAdsApiService($pdo))->listCampaigns($userId, $connectionId);
+            $campaigns = array_values(array_filter(
+                $campaigns,
+                static function (array $row): bool {
+                    $campaign = $row['campaign'] ?? [];
+                    $channel = (string) ($campaign['advertisingChannelType'] ?? '');
+                    $subChannel = (string) ($campaign['advertisingChannelSubType'] ?? '');
+                    return in_array($channel, ['SEARCH', 'DISPLAY', 'SHOPPING'], true)
+                        && $subChannel !== 'DISPLAY_SMART_CAMPAIGN';
+                }
+            ));
         } catch (Throwable $e) {
             error_log('[AdGuard Google Ads] ' . $e::class . ': ' . $e->getMessage());
             $_SESSION['error'] = 'Kampanyalar alınamadı. Google Ads bağlantısını ve API yetkilerini kontrol edin.';
