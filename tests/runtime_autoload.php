@@ -6,7 +6,7 @@ $_ENV['APP_URL'] = 'https://example.test/adguard';
 
 require BASE_PATH . '/app/Autoload.php';
 
-if (!class_exists(App\\Core\\Router::class)) {
+if (!class_exists(\App\Core\Router::class)) {
     throw new RuntimeException('Composer-free PSR-4 autoloading failed.');
 }
 if (!function_exists('env') || !function_exists('url')) {
