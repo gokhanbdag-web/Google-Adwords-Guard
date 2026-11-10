@@ -145,10 +145,21 @@ final class GoogleController
         $rulesQuery->execute(['user_id' => $userId]);
         $rules = $rulesQuery->fetchAll(PDO::FETCH_ASSOC);
         $actionsQuery = $pdo->prepare(
-            'SELECT id, ip_rule_id, customer_id, campaign_id, ip_address, action_type, status, error_message, created_at
-             FROM google_ads_actions
-             WHERE user_id = :user_id AND google_connection_id = :connection_id
-             ORDER BY id DESC LIMIT 50'
+            'SELECT a.id, a.ip_rule_id, a.customer_id, a.campaign_id, a.ip_address,
+                    a.action_type, a.status, a.error_message, a.created_at,
+                    EXISTS (
+                        SELECT 1 FROM google_ads_actions r
+                        WHERE r.user_id = a.user_id
+                          AND r.customer_id = a.customer_id
+                          AND r.campaign_id = a.campaign_id
+                          AND r.ip_address = a.ip_address
+                          AND r.action_type IN ('ip_exclusion_remove','account_ip_exclusion_remove')
+                          AND r.status = 'succeeded'
+                          AND r.id > a.id
+                    ) AS is_removed
+             FROM google_ads_actions a
+             WHERE a.user_id = :user_id AND a.google_connection_id = :connection_id
+             ORDER BY a.id DESC LIMIT 50'
         );
         $actionsQuery->execute(['user_id' => $userId, 'connection_id' => $connectionId]);
         $actions = $actionsQuery->fetchAll(PDO::FETCH_ASSOC);
