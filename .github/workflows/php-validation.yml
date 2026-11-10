@@ -44,7 +44,11 @@ jobs:
           set -euo pipefail
           while IFS= read -r -d '' file; do
             php -l "$file"
-          done < <(find app bootstrap config public routes resources bin tests -type f -name '*.php' -print0)
+          done < <(find app bootstrap config install public routes resources bin tests -type f -name '*.php' -print0)
+
+      - name: Verify Composer-free runtime autoloader
+        run: |
+          php -r "define('BASE_PATH', getcwd()); require 'app/Autoload.php'; if (!class_exists('App\\\\Core\\\\Router') || !function_exists('env')) { exit(1); } echo 'Standalone autoloader passed.' . PHP_EOL;"
 
       - name: Import fresh MySQL schema and seeders
         run: |
