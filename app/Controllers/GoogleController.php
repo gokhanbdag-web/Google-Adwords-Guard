@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Database;
+use App\Core\Security;
 use App\Services\GoogleAdsApiService;
+use App\Services\GoogleOAuthService;
 use PDO;
 use Throwable;
 
@@ -384,14 +386,30 @@ final class GoogleController
     public function disconnect(): void
     {
         requireAuth();
-        $stmt = Database::connection()->prepare(
+        $pdo = Database::connection();
+        $connectionId = (int) ($_POST['id'] ?? 0);
+        $userId = (int) auth()['id'];
+
+        $lookup = $pdo->prepare(
+            'SELECT refresh_token FROM google_connections WHERE id = :id AND user_id = :user_id LIMIT 1'
+        );
+        $lookup->execute(['id' => $connectionId, 'user_id' => $userId]);
+        $encryptedRefreshToken = $lookup->fetchColumn();
+
+        if (is_string($encryptedRefreshToken) && $encryptedRefreshToken !== '') {
+            try {
+                $refreshToken = Security::decrypt($encryptedRefreshToken);
+                (new GoogleOAuthService())->revokeToken($refreshToken);
+            } catch (Throwable $exception) {
+                error_log('[AdGuard Google disconnect] ' . $exception->getMessage());
+            }
+        }
+
+        $stmt = $pdo->prepare(
             "UPDATE google_connections SET status = 'revoked', access_token = NULL,
              refresh_token = '' WHERE id = :id AND user_id = :user_id"
         );
-        $stmt->execute([
-            'id' => (int) ($_POST['id'] ?? 0),
-            'user_id' => (int) auth()['id']
-        ]);
+        $stmt->execute(['id' => $connectionId, 'user_id' => $userId]);
         $_SESSION['success'] = 'Google Ads bağlantısı kaldırıldı.';
         redirect('/google');
     }
