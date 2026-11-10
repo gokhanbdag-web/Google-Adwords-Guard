@@ -71,6 +71,7 @@ final class RiskScoringService
         }
 
         $score = min(100, $score);
+        $candidateThreshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
 
         $classification = (string) (
             $detection['classification'] ?? 'unknown'
@@ -89,7 +90,7 @@ final class RiskScoringService
             'score' => $score,
             'level' => $this->getLevel($score),
             'is_suspicious' => $score >= 60,
-            'is_block_candidate' => $score >= 80,
+            'is_block_candidate' => $score >= $candidateThreshold,
             'reasons' => $reasons,
             'classification' => $classification,
             'requires_manual_review' => $score >= 60
@@ -111,11 +112,14 @@ final class RiskScoringService
 
     public function shouldCreateCandidate(
         array $risk,
-        int $minimumEvidence = 3
+        ?int $minimumSignals = null
     ): bool {
+        $threshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
+        $minimumSignals = $minimumSignals ?? max(1, min(100, (int) env('RISK_CANDIDATE_MIN_EVENTS', 3)));
+
         return
-            (int) ($risk['score'] ?? 0) >= 80 &&
-            count($risk['reasons'] ?? []) >= $minimumEvidence &&
-            ($risk['classification'] ?? '') !== 'known_crawler';
+            (int) ($risk['score'] ?? 0) >= $threshold &&
+            count($risk['reasons'] ?? []) >= $minimumSignals &&
+            !in_array(($risk['classification'] ?? ''), ['known_crawler', 'verified_crawler'], true);
     }
 }
