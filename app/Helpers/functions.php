@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-use App\\Core\\Database;
-function env(string $key, mixed $default = null): mixed { return \\App\\Core\\Env::get($key, $default); }
+use App\Core\Database;
+function env(string $key, mixed $default = null): mixed { return \App\Core\Env::get($key, $default); }
 function db(): PDO { return Database::connection(); }
 function e(mixed $value): string { return htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function url(string $path = '/'): string {
@@ -35,20 +35,20 @@ function auth(): ?array { return $_SESSION['user'] ?? null; }
 function isAdmin(): bool { return (auth()['role'] ?? null) === 'admin'; }
 function requireAuth(): void { if (!auth()) redirect('/login'); }
 function requireAdmin(): void { requireAuth(); if (!isAdmin()) { http_response_code(403); exit('Bu işlem için yetkiniz bulunmuyor.'); } }
-function csrf_field(): string { return '<input type="hidden" name="_token" value="' . e(\\App\\Core\\Security::csrfToken()) . '">'; }
+function csrf_field(): string { return '<input type="hidden" name="_token" value="' . e(\App\Core\Security::csrfToken()) . '">'; }
 function jsonResponse(array $data, int $status = 200): never {
     http_response_code($status); header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit;
 }
 function sanitize_html(string $html): string {
-    if (!class_exists(\\DOMDocument::class)) throw new RuntimeException('The PHP DOM extension is required for safe CMS rendering.');
+    if (!class_exists(\DOMDocument::class)) throw new RuntimeException('The PHP DOM extension is required for safe CMS rendering.');
     $allowedTags=['div','section','article','header','footer','nav','span','small','figure','figcaption','details','summary','dl','dt','dd','p','h1','h2','h3','h4','h5','h6','ul','ol','li','strong','b','em','i','u','br','hr','a','blockquote','pre','code','table','thead','tbody','tr','th','td','img'];
-    $previous=libxml_use_internal_errors(true); $dom=new \\DOMDocument('1.0','UTF-8');
+    $previous=libxml_use_internal_errors(true); $dom=new \DOMDocument('1.0','UTF-8');
     $dom->loadHTML('<?xml encoding="utf-8" ?><div id="adguard-cms-root">'.$html.'</div>',LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD|LIBXML_NONET);
     libxml_clear_errors(); libxml_use_internal_errors($previous); $root=$dom->getElementById('adguard-cms-root'); if(!$root)return '';
-    $walk=static function(\\DOMNode $node) use (&$walk,$allowedTags):void {
+    $walk=static function(\DOMNode $node) use (&$walk,$allowedTags):void {
         for($child=$node->firstChild;$child!==null;){$next=$child->nextSibling;
-            if($child instanceof \\DOMElement){$tag=strtolower($child->tagName);if(!in_array($tag,$allowedTags,true)){$node->removeChild($child);$child=$next;continue;}
+            if($child instanceof \DOMElement){$tag=strtolower($child->tagName);if(!in_array($tag,$allowedTags,true)){$node->removeChild($child);$child=$next;continue;}
                 $allowed=['class','id'];
                 if($tag==='a')$allowed=array_merge($allowed,['href','title','target']);
                 if($tag==='img')$allowed=array_merge($allowed,['src','alt','loading','width','height']);
