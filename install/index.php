@@ -114,8 +114,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 ]);
                 runSqlFile($pdo, $base . '/database/schema.sql', true);
                 runSqlFile($pdo, $base . '/database/seeders.sql');
-                foreach (glob($base . '/database/migrations/*.sql') ?: [] as $migration) {
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS schema_migrations (
+                    migration VARCHAR(190) NOT NULL PRIMARY KEY,
+                    checksum CHAR(64) NOT NULL,
+                    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB");
+
+                $migrations = glob($base . '/database/migrations/*.sql') ?: [];
+                sort($migrations, SORT_STRING);
+                $lookup = $pdo->prepare('SELECT checksum FROM schema_migrations WHERE migration = ?');
+                $record = $pdo->prepare('INSERT INTO schema_migrations (migration, checksum) VALUES (?, ?)');
+                foreach ($migrations as $migration) {
+                    $migrationName = basename($migration);
+                    $checksum = hash_file('sha256', $migration);
+                    $lookup->execute([$migrationName]);
+                    $appliedChecksum = $lookup->fetchColumn();
+                    if ($appliedChecksum !== false) {
+                        if (!hash_equals((string) $appliedChecksum, $checksum)) {
+                            throw new RuntimeException('Uygulanmış migrasyon dosyası değiştirilmiş: ' . $migrationName);
+                        }
+                        continue;
+                    }
                     runSqlFile($pdo, $migration);
+                    $record->execute([$migrationName, $checksum]);
                 }
                 $stmt = $pdo->prepare('INSERT INTO users (name,email,password,role,status,email_verified_at) VALUES (?,?,?,"admin","active",NOW())');
                 $stmt->execute([$adminName, $adminEmail, password_hash($adminPass, PASSWORD_DEFAULT)]);
