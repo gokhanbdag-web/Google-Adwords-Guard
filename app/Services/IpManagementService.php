@@ -239,14 +239,12 @@ final class IpManagementService
 
         try {
             $existing = $this->db->prepare(
-                "SELECT id
+                "SELECT id, source, status
                  FROM ip_rules
                  WHERE user_id = :user_id
                    AND website_id = :website_id
                    AND ip_address = :ip_address
                    AND rule_type = 'deny'
-                   AND source = 'automatic'
-                   AND status = 'pending'
                  LIMIT 1
                  FOR UPDATE"
             );
@@ -260,6 +258,13 @@ final class IpManagementService
             $candidate = $existing->fetch(PDO::FETCH_ASSOC);
 
             if ($candidate) {
+                if ($candidate['source'] !== 'automatic' || $candidate['status'] !== 'pending') {
+                    if ($ownsTransaction) {
+                        $this->db->commit();
+                    }
+                    return null;
+                }
+
                 $update = $this->db->prepare(
                     "UPDATE ip_rules
                      SET risk_score = GREATEST(risk_score, :risk_score),
