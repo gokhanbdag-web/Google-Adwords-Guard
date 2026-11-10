@@ -1,6 +1,4 @@
-
 <?php
-
 declare(strict_types=1);
 
 namespace App\Services;
@@ -14,72 +12,30 @@ final class RiskScoringService
         'critical' => [80, 100]
     ];
 
-    public function calculate(
-        array $detection,
-        array $additionalSignals = []
-    ): array {
-        $signals = $detection['signals'] ?? [];
-
-        if (!is_array($signals)) {
-            $signals = [];
-        }
-
+    public function calculate(array $detection, array $additionalSignals = []): array
+    {
+        $signals = is_array($detection['signals'] ?? null) ? $detection['signals'] : [];
         $score = 0;
         $reasons = [];
 
-        foreach ($signals as $signal) {
+        foreach (array_merge($signals, $additionalSignals) as $signal) {
             if (!is_array($signal)) {
                 continue;
             }
-
-            $weight = max(
-                0,
-                min(100, (int) ($signal['weight'] ?? 0))
-            );
-
+            $weight = max(0, min(100, (int) ($signal['weight'] ?? 0)));
             $score += $weight;
-
             $reasons[] = [
                 'code' => (string) ($signal['code'] ?? 'unknown'),
-                'description' => (string) (
-                    $signal['description'] ?? 'Belirsiz risk sinyali.'
-                ),
-                'weight' => $weight,
-                'details' => $signal['details'] ?? null
-            ];
-        }
-
-        foreach ($additionalSignals as $signal) {
-            if (!is_array($signal)) {
-                continue;
-            }
-
-            $weight = max(
-                0,
-                min(100, (int) ($signal['weight'] ?? 0))
-            );
-
-            $score += $weight;
-
-            $reasons[] = [
-                'code' => (string) ($signal['code'] ?? 'additional_signal'),
-                'description' => (string) (
-                    $signal['description'] ?? 'Ek risk sinyali.'
-                ),
+                'description' => (string) ($signal['description'] ?? 'Belirsiz risk sinyali.'),
                 'weight' => $weight,
                 'details' => $signal['details'] ?? null
             ];
         }
 
         $score = min(100, $score);
-
-        $classification = (string) (
-            $detection['classification'] ?? 'unknown'
-        );
-
+        $classification = (string) ($detection['classification'] ?? 'unknown');
         if ($classification === 'known_crawler') {
             $score = 0;
-
             $reasons[] = [
                 'code' => 'known_crawler_protection',
                 'description' => 'Bilinen crawler için risk puanı sıfırlandı.',
@@ -102,23 +58,18 @@ final class RiskScoringService
     public function getLevel(int $score): string
     {
         $score = max(0, min(100, $score));
-
         foreach (self::LEVELS as $level => [$minimum, $maximum]) {
             if ($score >= $minimum && $score <= $maximum) {
                 return $level;
             }
         }
-
         return 'low';
     }
 
-    public function shouldCreateCandidate(
-        array $risk,
-        int $minimumEvidence = 3
-    ): bool {
-        return
-            (int) ($risk['score'] ?? 0) >= 80 &&
-            count($risk['reasons'] ?? []) >= $minimumEvidence &&
-            ($risk['classification'] ?? '') !== 'known_crawler';
+    public function shouldCreateCandidate(array $risk, int $evidenceCount, int $minimumEvidence = 3): bool
+    {
+        return (int) ($risk['score'] ?? 0) >= 80
+            && $evidenceCount >= max(1, $minimumEvidence)
+            && ($risk['classification'] ?? '') !== 'known_crawler';
     }
 }

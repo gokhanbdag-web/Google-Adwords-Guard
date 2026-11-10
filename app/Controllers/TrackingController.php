@@ -124,7 +124,7 @@ final class TrackingController
 
             $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, self::MAX_USER_AGENT_LENGTH);
             $recentQuery = $this->db->prepare(
-                'SELECT page_url, created_at FROM visits
+                'SELECT page_url, created_at, UNIX_TIMESTAMP(created_at) AS created_at_epoch FROM visits
                  WHERE website_id = :website_id AND ip_address = :ip_address
                    AND created_at >= DATE_SUB(NOW(), INTERVAL 60 SECOND)
                  ORDER BY created_at DESC LIMIT 100'
@@ -167,7 +167,7 @@ final class TrackingController
                     (int) $website['id'],
                     $ip,
                     (int) $risk['score'],
-                    count($risk['reasons']),
+                    $evidenceCount,
                     $risk['reasons'],
                     $visitId
                 );
