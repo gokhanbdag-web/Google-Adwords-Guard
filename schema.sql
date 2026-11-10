@@ -21,7 +21,7 @@ DROP TABLE IF EXISTS users;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
@@ -34,7 +34,7 @@ CREATE TABLE users (
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE plans (
+CREATE TABLE IF NOT EXISTS plans (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     slug VARCHAR(140) NOT NULL UNIQUE,
@@ -51,7 +51,7 @@ CREATE TABLE plans (
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     plan_id BIGINT UNSIGNED NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE subscriptions (
     CONSTRAINT fk_subscription_plan FOREIGN KEY (plan_id) REFERENCES plans(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE websites (
+CREATE TABLE IF NOT EXISTS websites (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     name VARCHAR(120) NOT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE websites (
     CONSTRAINT fk_website_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE visits (
+CREATE TABLE IF NOT EXISTS visits (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     website_id BIGINT UNSIGNED NOT NULL,
     event_id CHAR(36) NOT NULL,
@@ -101,22 +101,54 @@ CREATE TABLE visits (
     CONSTRAINT fk_visit_website FOREIGN KEY (website_id) REFERENCES websites(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE ip_rules (
+CREATE TABLE IF NOT EXISTS ip_rules (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    website_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    website_id BIGINT UNSIGNED NULL,
+    source_visit_id BIGINT UNSIGNED NULL,
     ip_address VARBINARY(16) NOT NULL,
     rule_type ENUM('allow','deny','candidate','excluded_google') NOT NULL,
-    reason VARCHAR(500) NULL,
+    reason TEXT NULL,
     source ENUM('manual','automatic','google_ads') NOT NULL DEFAULT 'manual',
     status ENUM('active','pending','revoked') NOT NULL DEFAULT 'active',
+    risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    evidence_count INT UNSIGNED NOT NULL DEFAULT 0,
+    expires_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_ip_rule (website_id, ip_address, rule_type),
     INDEX idx_ip_rule_status (website_id, status),
-    CONSTRAINT fk_ip_rule_website FOREIGN KEY (website_id) REFERENCES websites(id)
+    INDEX idx_ip_rule_user_status (user_id, status),
+    INDEX idx_ip_rule_source_visit (source_visit_id),
+    CONSTRAINT fk_ip_rule_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_ip_rule_website FOREIGN KEY (website_id) REFERENCES websites(id),
+    CONSTRAINT fk_ip_rule_source_visit FOREIGN KEY (source_visit_id) REFERENCES visits(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
-CREATE TABLE google_connections (
+
+CREATE TABLE IF NOT EXISTS ip_rule_history (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ip_rule_id BIGINT UNSIGNED NULL,
+    website_id BIGINT UNSIGNED NOT NULL,
+    actor_user_id BIGINT UNSIGNED NULL,
+    ip_address VARBINARY(16) NOT NULL,
+    action ENUM('created','approved','revoked','updated') NOT NULL,
+    old_rule_type ENUM('allow','deny','candidate','excluded_google') NULL,
+    new_rule_type ENUM('allow','deny','candidate','excluded_google') NULL,
+    old_status ENUM('active','pending','revoked') NULL,
+    new_status ENUM('active','pending','revoked') NULL,
+    reason VARCHAR(500) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ip_history_rule (ip_rule_id, created_at),
+    INDEX idx_ip_history_website (website_id, created_at),
+    INDEX idx_ip_history_actor (actor_user_id, created_at),
+    INDEX idx_ip_history_ip (website_id, ip_address, created_at),
+    CONSTRAINT fk_ip_history_rule FOREIGN KEY (ip_rule_id) REFERENCES ip_rules(id) ON DELETE SET NULL,
+    CONSTRAINT fk_ip_history_website FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ip_history_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS google_connections (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     customer_id VARCHAR(20) NOT NULL,
@@ -132,7 +164,7 @@ CREATE TABLE google_connections (
     CONSTRAINT fk_google_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE pages (
+CREATE TABLE IF NOT EXISTS pages (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(190) NOT NULL,
     slug VARCHAR(190) NOT NULL UNIQUE,
@@ -144,7 +176,7 @@ CREATE TABLE pages (
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE menus (
+CREATE TABLE IF NOT EXISTS menus (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     location VARCHAR(40) NOT NULL,
     label VARCHAR(120) NOT NULL,
@@ -156,14 +188,14 @@ CREATE TABLE menus (
     INDEX idx_menu_location (location, is_active, sort_order)
 ) ENGINE=InnoDB;
 
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     setting_key VARCHAR(190) NOT NULL UNIQUE,
     setting_value LONGTEXT NULL,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-CREATE TABLE daily_usage (
+CREATE TABLE IF NOT EXISTS daily_usage (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     usage_date DATE NOT NULL,
@@ -172,7 +204,7 @@ CREATE TABLE daily_usage (
     CONSTRAINT fk_usage_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE queue_jobs (
+CREATE TABLE IF NOT EXISTS queue_jobs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     website_id BIGINT UNSIGNED NOT NULL,
