@@ -159,6 +159,88 @@ final class GoogleAdsApiClient
         );
     }
 
+
+    public function removeAccountIpExclusion(
+        string $customerId,
+        string $ipAddress,
+        bool $validateOnly = true
+    ): array {
+        $customerId = $this->normalizeCustomerId($customerId);
+        if (filter_var($ipAddress, FILTER_VALIDATE_IP) === false) {
+            throw new RuntimeException('IP address is invalid.');
+        }
+
+        $escapedIp = addslashes($ipAddress);
+        $query = "SELECT customer_negative_criterion.resource_name
+                  FROM customer_negative_criterion
+                  WHERE customer_negative_criterion.type = IP_BLOCK
+                    AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'";
+        $existing = $this->search($customerId, $query);
+
+        if ($existing === []) {
+            return ['not_found' => true, 'validate_only' => $validateOnly];
+        }
+
+        $resourceName = (string) ($existing[0]['customerNegativeCriterion']['resourceName'] ?? '');
+        if ($resourceName === '') {
+            throw new RuntimeException('Google Ads IP exclusion resource name is missing.');
+        }
+
+        return $this->request(
+            'POST',
+            "customers/{$customerId}/customerNegativeCriteria:mutate",
+            [
+                'operations' => [['remove' => $resourceName]],
+                'partialFailure' => false,
+                'validateOnly' => $validateOnly
+            ]
+        );
+    }
+
+    public function removeCampaignIpExclusion(
+        string $customerId,
+        string $campaignId,
+        string $ipAddress,
+        bool $validateOnly = true
+    ): array {
+        $customerId = $this->normalizeCustomerId($customerId);
+        if (!preg_match('/^[0-9]+$/', $campaignId)) {
+            throw new RuntimeException('Campaign ID is invalid.');
+        }
+        if (filter_var($ipAddress, FILTER_VALIDATE_IP) === false) {
+            throw new RuntimeException('IP address is invalid.');
+        }
+
+        $campaignResource = "customers/{$customerId}/campaigns/{$campaignId}";
+        $escapedIp = addslashes($ipAddress);
+        $query = "SELECT campaign_criterion.resource_name
+                  FROM campaign_criterion
+                  WHERE campaign_criterion.campaign = '{$campaignResource}'
+                    AND campaign_criterion.type = IP_BLOCK
+                    AND campaign_criterion.status != REMOVED
+                    AND campaign_criterion.ip_block.ip_address = '{$escapedIp}'";
+        $existing = $this->search($customerId, $query);
+
+        if ($existing === []) {
+            return ['not_found' => true, 'validate_only' => $validateOnly];
+        }
+
+        $resourceName = (string) ($existing[0]['campaignCriterion']['resourceName'] ?? '');
+        if ($resourceName === '') {
+            throw new RuntimeException('Google Ads campaign IP exclusion resource name is missing.');
+        }
+
+        return $this->request(
+            'POST',
+            "customers/{$customerId}/campaignCriteria:mutate",
+            [
+                'operations' => [['remove' => $resourceName]],
+                'partialFailure' => false,
+                'validateOnly' => $validateOnly
+            ]
+        );
+    }
+
     private function search(string $customerId, string $query): array
     {
         $allRows = [];
