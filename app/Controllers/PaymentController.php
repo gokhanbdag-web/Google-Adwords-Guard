@@ -218,7 +218,7 @@ final class PaymentController
                 VALUES ('iyzico',:event,:hash,'received')");
             try {
                 $event->execute(['event'=>$eventKey,'hash'=>$hash]);
-            } catch (\\PDOException $e) {
+            } catch (\PDOException $e) {
                 if ((int)($e->errorInfo[1] ?? 0) === 1062) {
                     $pdo->rollBack();
                     http_response_code(200);
@@ -232,7 +232,7 @@ final class PaymentController
                 ORDER BY s.id DESC LIMIT 1 FOR UPDATE");
             $query->execute(['reference'=>$subscriptionRef]);
             $subscription = $query->fetch(PDO::FETCH_ASSOC);
-            if (!$subscription) throw new \\RuntimeException('Local subscription not found for iyzico webhook.');
+            if (!$subscription) throw new \RuntimeException('Local subscription not found for iyzico webhook.');
             $status = $eventType === 'subscription.order.success' ? 'paid' : 'failed';
             $payment = $pdo->prepare("INSERT INTO payments
                 (user_id,plan_id,subscription_id,provider,merchant_order_id,provider_payment_id,amount,currency,status,paid_at,provider_response)
@@ -281,11 +281,11 @@ final class PaymentController
         }
         try {
             if ($subscription['payment_provider'] !== 'iyzico' || empty($subscription['provider_subscription_id'])) {
-                throw new \\RuntimeException('Bu sağlayıcı için otomatik yenileme iptal API akışı henüz etkin değil.');
+                throw new \RuntimeException('Bu sağlayıcı için otomatik yenileme iptal API akışı henüz etkin değil.');
             }
             $result = (new IyzicoGateway())->cancelSubscription((string)$subscription['provider_subscription_id']);
             if (($result['status'] ?? '') !== 'success') {
-                throw new \\RuntimeException('iyzico abonelik iptalini onaylamadı.');
+                throw new \RuntimeException('iyzico abonelik iptalini onaylamadı.');
             }
             $pdo->prepare("UPDATE subscriptions SET auto_renew=0,cancelled_at=NOW(),cancellation_reason='customer_request'
                 WHERE id=:id AND user_id=:user")
