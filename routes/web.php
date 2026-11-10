@@ -4,6 +4,7 @@ declare(strict_types=1);
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\HomeController;
+use App\Controllers\GoogleController;
 use App\Controllers\IpRuleController;
 use App\Controllers\SiteController;
 use App\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -22,6 +23,12 @@ $router->get('/sites/create', [SiteController::class, 'create']);
 $router->post('/sites', [SiteController::class, 'store']);
 
 $router->get('/ip-rules', [IpRuleController::class, 'index']);
+
+$router->get('/google', [GoogleController::class, 'index']);
+$router->get('/google/connect', [GoogleController::class, 'connect']);
+$router->get('/google/callback', [GoogleController::class, 'callback']);
+$router->post('/google/select', [GoogleController::class, 'select']);
+$router->post('/google/apply', [GoogleController::class, 'applyIpExclusion']);
 $router->post('/ip-rules', [IpRuleController::class, 'store']);
 $router->post('/ip-rules/approve', [IpRuleController::class, 'approve']);
 $router->post('/ip-rules/revoke', [IpRuleController::class, 'revoke']);
