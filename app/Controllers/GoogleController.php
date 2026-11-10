@@ -30,6 +30,7 @@ final class GoogleController
         try {
             $state = bin2hex(random_bytes(32));
             $_SESSION['google_oauth_state'] = $state;
+            $_SESSION['google_oauth_state_created_at'] = time();
             redirect((new \App\Services\GoogleOAuthService())->authorizationUrl($state));
         } catch (Throwable $e) {
             error_log('[AdGuard Google OAuth] ' . $e::class);
@@ -43,8 +44,9 @@ final class GoogleController
         requireAuth();
         $state = (string) ($_GET['state'] ?? '');
         $expected = (string) ($_SESSION['google_oauth_state'] ?? '');
-        unset($_SESSION['google_oauth_state']);
-        if ($state === '' || $expected === '' || !hash_equals($expected, $state)) {
+        $stateCreatedAt = (int) ($_SESSION['google_oauth_state_created_at'] ?? 0);
+        unset($_SESSION['google_oauth_state'], $_SESSION['google_oauth_state_created_at']);
+        if ($state === '' || $expected === '' || $stateCreatedAt < time() - 600 || !hash_equals($expected, $state)) {
             $_SESSION['error'] = 'Google OAuth doğrulaması başarısız.';
             redirect('/google');
         }
