@@ -29,6 +29,7 @@ $router->get('/google/connect', [GoogleController::class, 'connect']);
 $router->get('/google/callback', [GoogleController::class, 'callback']);
 $router->post('/google/select', [GoogleController::class, 'select']);
 $router->post('/google/apply', [GoogleController::class, 'applyIpExclusion']);
+$router->post('/google/remove', [GoogleController::class, 'removeIpExclusion']);
 $router->post('/ip-rules', [IpRuleController::class, 'store']);
 $router->post('/ip-rules/approve', [IpRuleController::class, 'approve']);
 $router->post('/ip-rules/revoke', [IpRuleController::class, 'revoke']);
