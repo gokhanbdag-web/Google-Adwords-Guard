@@ -8,7 +8,7 @@
 </head>
 <body>
 <main class="auth-container">
-    <h1>Yeni Web Sitesi</h1>
+    <h1>Yeni Web Sitesi</h1>\n    <p><a href="/dashboard">Kontrol Paneli</a> · <a href="/ip-rules">IP Yönetimi</a></p>
 
     <?php if (!empty($_SESSION['error'])): ?>
         <p class="alert"><?= e($_SESSION['error']) ?></p>
