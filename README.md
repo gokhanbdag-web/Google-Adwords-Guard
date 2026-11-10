@@ -5,13 +5,13 @@ PHP 8.2+ and MySQL 8+ SaaS for website traffic analysis, risk scoring, IP review
 ## Shared-hosting installation (no SSH / no Composer)
 
 1. In your hosting control panel, create a MySQL database and database user. Grant the user all privileges on that database.
-2. Upload the complete release ZIP into the target subdirectory and extract it. Keep the `app`, `bootstrap`, `config`, `database`, `install`, `public`, `routes`, `storage`, and `vendor` directories together.
+2. Upload the complete release ZIP into the target subdirectory and extract it. Keep the `app`, `bootstrap`, `config`, `database`, `install`, `public`, `routes`, and `storage` directories together. The release contains its own lightweight PHP autoloader; a `vendor` directory is not required.
 3. Visit the subdirectory URL in a browser. The installer checks PHP 8.2+, required extensions and write permissions.
 4. Enter the database host/name/user/password, site URL, and first administrator details.
-5. The installer creates the schema, imports starter content, applies migrations, generates a unique application key, writes the protected `.env` file, and locks the installer.
+5. The installer creates the schema, imports starter content, applies numbered migrations in order with checksums recorded in `schema_migrations`, generates a unique application key, writes the protected `.env` file, creates the first administrator, and locks the installer.
 6. Sign in at the URL shown after installation.
 
-No SSH, terminal, Composer command, phpMyAdmin SQL import, or manual administrator promotion is required. Use a fresh, empty database. Do not upload only the `public` directory: the application source directories must remain alongside it. The root entry point and rewrite rules support a subdirectory installation on compatible Apache shared hosting.
+No SSH, terminal, Composer command, phpMyAdmin SQL import, or manual administrator promotion is required. The runtime uses the included PSR-4 autoloader and does not call `vendor/autoload.php`. Use a fresh, empty database. Do not upload only the `public` directory: the application source directories must remain alongside it. The root entry point and rewrite rules support a subdirectory installation on compatible Apache shared hosting.
 
 ## Requirements
 - PHP 8.2+
