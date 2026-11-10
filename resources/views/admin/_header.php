@@ -3,6 +3,7 @@
 <div class="admin-sidebar-backdrop" data-admin-backdrop></div>
 <aside class="admin-sidebar" id="admin-sidebar">
 <a class="admin-brand" href="<?= e(url('/admin')) ?>">AdGuard <span>PRO</span></a>
+<a class="admin-back-to-site" href="<?= e(url('/')) ?>"><span aria-hidden="true">↗</span> Siteye Dön</a>
 <div class="admin-nav-label">YÖNETİM</div>
 <nav aria-label="Yönetim menüsü">
 <a class="<?= $adminActive==='dashboard'?'active':'' ?>" href="<?= e(url('/admin')) ?>"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg></span><span>Genel Bakış</span></a>
