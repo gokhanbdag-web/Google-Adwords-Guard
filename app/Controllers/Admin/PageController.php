@@ -12,7 +12,22 @@ final class PageController
     {
         requireAdmin();
         $pages = Database::connection()->query('SELECT * FROM pages ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+        $homepageId = (int) setting('homepage_page_id', 0);
         require BASE_PATH . '/resources/views/admin/pages.php';
+    }
+
+    public function setHomepage(): void
+    {
+        requireAdmin();
+        $id = (int) ($_POST['page_id'] ?? 0);
+        if ($id > 0) {
+            $stmt = Database::connection()->prepare("SELECT id FROM pages WHERE id = ? AND status = 'published' LIMIT 1");
+            $stmt->execute([$id]);
+            if (!$stmt->fetchColumn()) { $_SESSION['error'] = 'Yalnızca yayınlanmış sayfalar ana sayfa olabilir.'; redirect('/admin/pages'); }
+            save_setting('homepage_page_id', (string) $id);
+        } else { save_setting('homepage_page_id', '0'); }
+        $_SESSION['success'] = 'Ana sayfa ayarı güncellendi.';
+        redirect('/admin/pages');
     }
 
     public function store(): void
@@ -47,7 +62,9 @@ final class PageController
     {
         requireAdmin();
         $stmt = Database::connection()->prepare('DELETE FROM pages WHERE id = :id');
-        $stmt->execute(['id' => (int) ($_POST['id'] ?? 0)]);
+        $deleteId = (int) ($_POST['id'] ?? 0);
+        $stmt->execute(['id' => $deleteId]);
+        if ((int) setting('homepage_page_id', 0) === $deleteId) save_setting('homepage_page_id', '0');
         $_SESSION['success'] = 'Sayfa silindi.';
         redirect('/admin/pages');
     }
