@@ -87,11 +87,25 @@
                 <h3><?= e($rule['ip_address']) ?></h3>
                 <p><?= e($rule['website_name']) ?> — <?= e($rule['domain']) ?></p>
                 <p>Risk: <?= (int) $rule['risk_score'] ?>/100 · Kanıt: <?= (int) $rule['evidence_count'] ?></p>
+                <form method="post" action="/google/apply">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="rule_id" value="<?= (int) $rule['id'] ?>">
+                    <input type="hidden" name="scope" value="account">
+                    <h4>Hesap genelinde (tüm kampanyalar)</h4>
+                    <?php if ($writesEnabled): ?>
+                        <label><input type="checkbox" name="confirm_live" value="1" required> Bu IP adresini Google Ads hesabının tamamında gerçekten hariç tutmayı onaylıyorum.</label>
+                        <button type="submit">Hesap genelinde uygula</button>
+                    <?php else: ?>
+                        <p>Yalnızca doğrulama yapılır; hesapta değişiklik oluşturulmaz.</p>
+                        <button type="submit">Hesap genelinde doğrula</button>
+                    <?php endif; ?>
+                </form>
                 <?php if ($campaigns): ?>
                     <form method="post" action="/google/apply">
                         <?= csrf_field() ?>
                         <input type="hidden" name="rule_id" value="<?= (int) $rule['id'] ?>">
-                        <label>Hedef kampanya</label>
+                        <input type="hidden" name="scope" value="campaign">
+                        <label>Yalnızca kampanya</label>
                         <select name="campaign_id" required>
                             <option value="">Kampanya seçin</option>
                             <?php foreach ($campaigns as $campaign): ?>
@@ -102,10 +116,10 @@
                         </select>
                         <?php if ($writesEnabled): ?>
                             <label><input type="checkbox" name="confirm_live" value="1" required> Bu IP adresini seçili kampanyada gerçekten hariç tutmayı onaylıyorum.</label>
-                            <button type="submit">Google Ads'e uygula</button>
+                            <button type="submit">Kampanyaya uygula</button>
                         <?php else: ?>
-                            <p>Bu işlem yalnızca API doğrulaması yapar; kampanyada değişiklik oluşturmaz.</p>
-                            <button type="submit">İşlemi doğrula (dry-run)</button>
+                            <p>Yalnızca doğrulama yapılır; kampanyada değişiklik oluşturulmaz.</p>
+                            <button type="submit">Kampanya doğrula</button>
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>
