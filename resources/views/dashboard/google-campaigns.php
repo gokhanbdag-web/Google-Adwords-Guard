@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Google Ads kampanyaları - AdGuard</title>
-    <link rel="stylesheet" href="/assets/app.css">
+    <link rel="stylesheet" href="<?= e(url('/assets/app.css')) ?>">
 </head>
 <body>
 <main class="container">
     <h1>Google Ads IP hariç tutmaları</h1>
-    <p><a href="/google">Hesap bağlantılarına dön</a> · <a href="/dashboard">Kontrol paneli</a></p>
+    <p><a href="<?= e(url('/google')) ?>">Hesap bağlantılarına dön</a> · <a href="<?= e(url('/dashboard')) ?>">Kontrol paneli</a></p>
 
     <?php if (!empty($_SESSION['success'])): ?>
         <p class="success"><?= e($_SESSION['success']) ?></p>
@@ -35,7 +35,7 @@
             <p>Onaylanmış aktif deny kuralı bulunamadı.</p>
         <?php endif; ?>
         <?php foreach ($rules as $rule): ?>
-            <form method="post" action="/google/exclude" class="site-row">
+            <form method="post" action="<?= e(url('/google/exclude')) ?>" class="site-row">
                 <?= csrf_field() ?>
                 <input type="hidden" name="connection_id" value="<?= (int) $connection['id'] ?>">
                 <input type="hidden" name="scope" value="account">
@@ -62,7 +62,7 @@
             <h3><?= e($campaign['name'] ?? 'Kampanya') ?></h3>
             <p>ID: <?= e($campaign['id'] ?? '') ?> · Tür: <?= e($campaign['advertisingChannelType'] ?? '') ?> · Durum: <?= e($campaign['status'] ?? '') ?></p>
             <?php foreach ($rules as $rule): ?>
-                <form method="post" action="/google/exclude" class="site-row">
+                <form method="post" action="<?= e(url('/google/exclude')) ?>" class="site-row">
                     <?= csrf_field() ?>
                     <input type="hidden" name="connection_id" value="<?= (int) $connection['id'] ?>">
                     <input type="hidden" name="scope" value="campaign">
@@ -91,7 +91,7 @@
             <p>Durum: <?= e($action['status']) ?> · <?= e($action['created_at']) ?></p>
             <?php if (!empty($action['error_message'])): ?><p class="alert"><?= e($action['error_message']) ?></p><?php endif; ?>
             <?php if (in_array($action['action_type'], ['ip_exclusion', 'account_ip_exclusion'], true) && $action['status'] === 'succeeded' && empty($action['is_removed'])): ?>
-                <form method="post" action="/google/remove">
+                <form method="post" action="<?= e(url('/google/remove')) ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action_id" value="<?= (int) $action['id'] ?>">
                     <?php if ($writesEnabled): ?>
