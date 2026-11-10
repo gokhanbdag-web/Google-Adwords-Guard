@@ -134,7 +134,7 @@
         <?php foreach ($history as $item): ?>
             <article class="site-card">
                 <strong><?= e($item['ip_address']) ?></strong>
-                <p>Müşteri: <?= e($item['customer_id']) ?> · Kampanya: <?= e($item['campaign_id']) ?></p>
+                <p>Müşteri: <?= e($item['customer_id']) ?> · Kapsam: <?= $item['campaign_id'] === 'ACCOUNT' ? 'Hesap geneli' : e($item['campaign_id']) ?></p>
                 <p>İşlem: <?= e($item['action']) ?> · Sonuç: <?= e($item['status']) ?> · <?= e($item['created_at']) ?></p>
                 <?php if (!empty($item['error_message'])): ?><p class="alert"><?= e($item['error_message']) ?></p><?php endif; ?>
             </article>
