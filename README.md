@@ -10,7 +10,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 
 ## Fresh installation
 1. Create an empty MySQL database.
-2. Import `database/schema.sql`. **This file drops and recreates tables; use it only on an empty/new database.**
+2. Create a database named `adguard` and import `database/schema.sql`. The schema uses `CREATE TABLE IF NOT EXISTS` and does not drop existing tables; apply only the numbered migrations that have not already been run.
 3. Copy `.env.example` to `.env`.
 4. Set `APP_URL`, database credentials, and a unique random `APP_KEY` of at least 32 characters.
 5. Run `composer install --no-dev --optimize-autoloader`.
@@ -25,15 +25,15 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 - Keep `.env` outside the public document root.
 - Generate a random APP_KEY; changing it later makes existing encrypted Google tokens unreadable.
 - Google OAuth needs a configured OAuth client and redirect URI.
-- Google Ads access needs an approved developer token and the required account permissions.
-- `GOOGLE_ADS_WRITES_ENABLED=false` is the safe default. Only set it to true after reviewing the Google Ads account and accepting the impact of campaign exclusions.
+- Google Ads API v26 access is tied to the Google Cloud project that owns the OAuth client. The developer-token requirement was sunset on September 9, 2026; this application does not request or send a developer-token header. Enable the Google Ads API and obtain the required project access level in Google Cloud Console.
+- `GOOGLE_ADS_WRITES_ENABLED=false` is the safe default. It runs API validation only. To enable real changes, set it to true and require a separate live-confirmation checkbox for every exclusion or removal.
 - `AUTO_BLOCK_ENABLED` remains disabled by default. Automatic Google Ads changes are not performed by the tracking endpoint.
 
 ## Tracking
 Add the script shown on the Sites page to the registered website. Requests are sent to `/track`. The website must be active and its owner must have an active subscription. A daily quota is consumed atomically with the visit insert. Duplicate event IDs do not consume quota.
 
 ## Google Ads
-Connect an account from the Google Ads page. Campaign IP exclusions require an active, approved deny rule, an explicit form submission, and `GOOGLE_ADS_WRITES_ENABLED=true`. Only IPv4 addresses are sent to Google Ads. Each API attempt is recorded in `google_ads_actions`.
+Connect an account from the Google Ads page. Account-level IP exclusions apply across the customer account (up to 500 IP entries). Campaign-level exclusions are restricted to supported Search, Display and Shopping campaign types (up to 500 per campaign). Both require an active, approved deny rule; only IPv4 addresses are sent to Google Ads. Live writes and removals require `GOOGLE_ADS_WRITES_ENABLED=true` plus an explicit confirmation checkbox. API attempts are recorded in `google_ads_actions`.
 
 ## Cron and queue
 Run the maintenance command every 5 minutes:
