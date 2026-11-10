@@ -21,7 +21,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
    `UPDATE users SET role='admin' WHERE email='your-admin-email';`
 
 ## Environment
-- Set `APP_ENV=production`, `APP_DEBUG=false`, and use HTTPS.
+- Set `APP_ENV=production`, `APP_DEBUG=false`, and use HTTPS. If the app is behind a reverse proxy, list only the proxy's exact IP addresses in `TRUSTED_PROXIES`; forwarded client IP headers are ignored unless `REMOTE_ADDR` is on that list.
 - Keep `.env` outside the public document root.
 - Generate a random APP_KEY; changing it later makes existing encrypted Google tokens unreadable.
 - Google OAuth needs a configured OAuth client and redirect URI.
