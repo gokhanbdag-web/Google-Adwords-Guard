@@ -36,6 +36,18 @@ final class IpController
         $stmt->execute($params);
         $rules = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $historyQuery = $pdo->prepare(
+            'SELECT h.id, INET6_NTOA(h.ip_address) AS ip_text, h.action,
+                    h.old_rule_type, h.new_rule_type, h.old_status, h.new_status,
+                    h.reason, h.created_at, w.name AS website_name
+             FROM ip_rule_history h
+             INNER JOIN websites w ON w.id = h.website_id
+             WHERE w.user_id = :user_id
+             ORDER BY h.id DESC LIMIT 100'
+        );
+        $historyQuery->execute(['user_id' => $userId]);
+        $history = $historyQuery->fetchAll(PDO::FETCH_ASSOC);
+
         require BASE_PATH . '/resources/views/dashboard/ip-management.php';
     }
 
@@ -64,8 +76,12 @@ final class IpController
             );
             $_SESSION['success'] = 'IP kuralı kaydedildi.';
             redirect('/ip-rules');
-        } catch (Throwable $e) {
+        } catch (\\RuntimeException $e) {
             $_SESSION['error'] = $e->getMessage();
+            redirect('/ip-rules/create');
+        } catch (Throwable $e) {
+            error_log('[AdGuard IP rule] ' . $e::class . ': ' . $e->getMessage());
+            $_SESSION['error'] = 'IP kuralı kaydedilemedi. Lütfen tekrar deneyin.';
             redirect('/ip-rules/create');
         }
     }
