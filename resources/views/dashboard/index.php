@@ -10,7 +10,7 @@
 <header class="dashboard-header">
     <a href="/dashboard">AdGuard</a>
     <nav>
-        <a href="/sites">Sitelerim</a>
+        <a href="/sites">Sitelerim</a>\n        <a href="/ip-rules">IP Yönetimi</a>
         <?php if (isAdmin()): ?><a href="/admin">Yönetim</a><?php endif; ?>
         <form method="post" action="/logout">
             <?= csrf_field() ?>
