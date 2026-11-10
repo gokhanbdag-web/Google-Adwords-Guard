@@ -10,7 +10,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 
 ## Fresh installation
 1. Create an empty MySQL database.
-2. Create a database named `adguard` and import `database/schema.sql`. The schema uses `CREATE TABLE IF NOT EXISTS` and does not drop existing tables; apply only the numbered migrations that have not already been run.
+2. Create a completely empty database named `adguard` and import `database/schema.sql`. **Warning:** this base schema contains `DROP TABLE` statements and is destructive; never import it into a database containing data. For an existing installation, back up first and apply only migrations that have not already run.
 3. Copy `.env.example` to `.env`.
 4. Set `APP_URL`, database credentials, and a unique random `APP_KEY` of at least 32 characters.
 5. Run `composer install --no-dev --optimize-autoloader`.
