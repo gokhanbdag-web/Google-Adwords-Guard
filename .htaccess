@@ -4,7 +4,7 @@ DirectoryIndex index.php
     RewriteEngine On
 
     # Never expose application source, configuration, SQL, or environment files.
-    RewriteRule ^(app|bootstrap|config|database|install|resources|routes|vendor)(/|$) - [F,L,NC]
+    RewriteRule ^(app|bootstrap|config|database|install|resources|routes|storage|vendor)(/|$) - [F,L,NC]
     RewriteRule ^(\.env|composer\.(json|lock)|README\.md|schema\.sql|seeders\.sql)(/|$) - [F,L,NC]
 
     # Requests already targeting public assets or the public entry point stay there.
