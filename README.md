@@ -30,7 +30,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 - `AUTO_BLOCK_ENABLED` remains disabled by default. Automatic Google Ads changes are not performed by the tracking endpoint.
 
 ## Tracking
-Add the script shown on the Sites page to the registered website. Requests are sent to `/track`. The website must be active and its owner must have an active subscription. A daily quota is consumed atomically with the visit insert. Duplicate event IDs do not consume quota.
+Add the script shown on the Sites page to the registered website. Requests are sent to `/track` using a `text/plain` JSON beacon. The website must be active and its owner must have an active subscription. A daily quota is consumed atomically with the visit insert. Duplicate event IDs do not consume quota. The server strips query strings and fragments from stored page/referrer URLs. Visit records contain the server-observed IP address and user agent; set `VISIT_RETENTION_DAYS` (default 90, range 7–3650) and run `php bin/cron.php` every five minutes to prune old visit rows. Customize the privacy notice for your own legal basis and retention policy; this software does not guarantee KVKK/GDPR compliance.
 
 ## Google Ads
 Connect an account from the Google Ads page. Account-level IP exclusions apply across the customer account (up to 500 IP entries). Campaign-level exclusions are restricted to supported Search, Display and Shopping campaign types (up to 500 per campaign). Both require an active, approved deny rule; only IPv4 addresses are sent to Google Ads. Live writes and removals require `GOOGLE_ADS_WRITES_ENABLED=true` plus an explicit confirmation checkbox. API attempts are recorded in `google_ads_actions`.
@@ -42,7 +42,7 @@ Run the maintenance command every 5 minutes:
 Run one queued job every minute (or more frequently):
 `php bin/queue-worker.php`
 
-The worker supports `google_ip_exclusion` jobs with JSON payload keys `connection_id`, `campaign_id`, and `ip_rule_id`. Queue rows must also include the owning `user_id` and `website_id`.
+The worker supports `google_ip_exclusion` jobs with JSON payload keys `connection_id`, `ip_rule_id`, optional `scope` (`campaign` or `account`), `campaign_id` for campaign scope, and `confirm_live` (boolean). Queue rows must also include the owning `user_id` and `website_id`. Live changes require both `confirm_live=true` and `GOOGLE_ADS_WRITES_ENABLED=true`; otherwise the worker uses API validation only.
 
 ## Payment processing
 - PayTR hosted iFrame one-time checkout and iyzico Checkout Form one-time checkout are wired into customer checkout.
