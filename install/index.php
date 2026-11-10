@@ -20,6 +20,8 @@ $writable = is_writable($base) && (is_writable($base . '/storage') || is_writabl
 
 function h(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 
+if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+
 function sqlStatements(string $sql): array {
     $statements = [];
     $buffer = '';
@@ -148,7 +150,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
-if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
 if (empty($_SESSION['installer_token'])) $_SESSION['installer_token'] = bin2hex(random_bytes(32));
 $token = $_SESSION['installer_token'];
 $defaultUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
