@@ -57,6 +57,39 @@ final class GoogleOAuthService
         ]);
     }
 
+
+    public function revokeToken(string $token): void
+    {
+        if ($token === '') {
+            return;
+        }
+
+        $curl = curl_init('https://oauth2.googleapis.com/revoke');
+        if ($curl === false) {
+            throw new RuntimeException('Could not initialize Google token revocation.');
+        }
+
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['token' => $token]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2
+        ]);
+
+        $body = curl_exec($curl);
+        $error = curl_error($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        if ($body === false || $status < 200 || $status >= 300) {
+            throw new RuntimeException('Google token revocation failed: ' . ($error !== '' ? $error : 'HTTP ' . $status));
+        }
+    }
+
     public function listAccessibleCustomers(string $accessToken): array
     {
         $response = $this->request(
