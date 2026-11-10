@@ -85,6 +85,18 @@ final class GoogleAdsApiClient
             ];
         }
 
+        $campaignIpBlocks = $this->search(
+            $customerId,
+            "SELECT campaign_criterion.resource_name
+             FROM campaign_criterion
+             WHERE campaign_criterion.campaign = '{$campaignResource}'
+               AND campaign_criterion.type = IP_BLOCK
+               AND campaign_criterion.status != REMOVED"
+        );
+        if (count($campaignIpBlocks) >= 500) {
+            throw new RuntimeException('Seçilen kampanya 500 IP hariç tutma sınırına ulaşmış.');
+        }
+
         return $this->request(
             'POST',
             "customers/{$customerId}/campaignCriteria:mutate",
