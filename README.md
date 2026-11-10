@@ -10,7 +10,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 
 ## Fresh installation
 1. Create an empty MySQL database.
-2. Create a completely empty database named `adguard` and import `database/schema.sql`. **Warning:** this base schema contains `DROP TABLE` statements and is destructive; never import it into a database containing data. For an existing installation, back up first and apply only migrations that have not already run.
+2. Create a database named `adguard` and import `database/schema.sql`. The base schema uses `CREATE TABLE IF NOT EXISTS` and does not drop existing tables. It does not alter existing table definitions; use the numbered migrations for upgrades.
 3. Copy `.env.example` to `.env`.
 4. Set `APP_URL`, database credentials, and a unique random `APP_KEY` of at least 32 characters.
 5. Run `composer install --no-dev --optimize-autoloader`.
@@ -27,7 +27,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 - Google OAuth needs a configured OAuth client and redirect URI.
 - Google Ads API v26 access is tied to the Google Cloud project that owns the OAuth client. The developer-token requirement was sunset on September 9, 2026; this application does not request or send a developer-token header. Enable the Google Ads API and obtain the required project access level in Google Cloud Console.
 - `GOOGLE_ADS_WRITES_ENABLED=false` is the safe default. It runs API validation only. To enable real changes, set it to true and require a separate live-confirmation checkbox for every exclusion or removal.
-- `AUTO_BLOCK_ENABLED` remains disabled by default. Automatic Google Ads changes are not performed by the tracking endpoint.
+- Tracking never writes to Google Ads automatically. Only a user-approved IP rule and a separately confirmed action can trigger a Google Ads API write.
 
 ## Tracking
 Add the script shown on the Sites page to the registered website. Requests are sent to `/track` using a `text/plain` JSON beacon. The website must be active and its owner must have an active subscription. A daily quota is consumed atomically with the visit insert. Duplicate event IDs do not consume quota. The server strips query strings and fragments from stored page/referrer URLs. Visit records contain the server-observed IP address and user agent; set `VISIT_RETENTION_DAYS` (default 90, range 7–3650) and run `php bin/cron.php` every five minutes to prune old visit rows. Customize the privacy notice for your own legal basis and retention policy; this software does not guarantee KVKK/GDPR compliance.
