@@ -39,6 +39,19 @@ final class IpRuleController
         $ruleQuery->execute(['user_id' => $userId]);
         $rules = $ruleQuery->fetchAll();
 
+        $historyQuery = $pdo->prepare(
+            'SELECT h.id, INET6_NTOA(h.ip_address) AS ip_address,
+                    h.action, h.old_status, h.new_status, h.reason, h.created_at,
+                    w.name AS website_name
+             FROM ip_rule_history h
+             INNER JOIN websites w ON w.id = h.website_id
+             WHERE w.user_id = :user_id
+             ORDER BY h.id DESC
+             LIMIT 100'
+        );
+        $historyQuery->execute(['user_id' => $userId]);
+        $history = $historyQuery->fetchAll(PDO::FETCH_ASSOC);
+
         require BASE_PATH . '/resources/views/dashboard/ip-rules.php';
     }
 
