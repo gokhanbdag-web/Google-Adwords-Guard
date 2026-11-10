@@ -19,7 +19,7 @@ No existing application files have been deleted or overwritten during this audit
 6. **IP service/schema mismatch:** IpManagementService queries and writes ip_rules columns user_id, risk_score, evidence_count, and expires_at, and permits website_id IS NULL. The current schema defines none of those columns and makes website_id NOT NULL.
 7. **Subscription schema mismatch:** QuotaService reads subscriptions.current_period_end, but schema.sql defines ends_at.
 8. **Tracking is incomplete:** TrackingController stores every accepted visit with risk_score=0 and risk_level='low'; it does not invoke BotDetectionService, RiskScoringService, QuotaService, or IpManagementService. No tracker.js asset is present in the tracked root files, although the sites template emits a tracker.js URL.
-9. **Google Ads integration is not implemented:** google.php only returns configuration values. OAuth, token lifecycle, customer account selection, campaign/account IP-exclusion operations, and audit-safe execution are not present in the inspected files.
+9. **Google Ads integration:** OAuth multi-account linking, encrypted token storage/refresh, campaign listing, campaign IP-exclusion validation, opt-in live mutation, and operation audit logging have now been added. A real Google Ads account/API access test is still required.
 10. **Potential destructive database setup:** schema.sql drops existing tables before recreating them. It must be clearly treated as a fresh-install script and must not be run against an existing production database.
 
 ## Existing useful components
@@ -40,7 +40,7 @@ No existing application files have been deleted or overwritten during this audit
 2. Reconcile the SQL schema and migrations with every service query; provide non-destructive upgrades for existing installations.
 3. Wire tracking to quota, bot detection, risk scoring, and pending-candidate creation. Keep automatic blocking and Google Ads write operations disabled by default.
 4. Implement missing controllers, views, assets, and route coverage.
-5. Implement Google OAuth and Google Ads account/IP-exclusion workflows with encrypted token storage, explicit user confirmation, audit logs, and safe dry-run behavior.
+5. Validate Google OAuth and Google Ads account/IP-exclusion workflows against a real test account; add removal/rollback and reconcile API errors/access levels.
 6. Add admin/customer workflows, validation, security headers, logging, and deployment documentation.
 7. Run PHP syntax checks and consistency checks; document any tests that require a real MySQL/Google Ads environment.
 
