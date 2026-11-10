@@ -4,6 +4,9 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Application source, configuration, migrations, templates and dependencies are never public.
+    RewriteRule ^(?:app|config|database|docs|migrations|resources|routes|vendor)(?:/|$) - [F,L]
+
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
@@ -16,8 +19,13 @@ DirectoryIndex index.php
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Cross-Origin-Resource-Policy "same-site"
 </IfModule>
 
-<FilesMatch "^\.">
+<FilesMatch "^(?!index\\.php$).+\\.php$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\\.">
     Require all denied
 </FilesMatch>
