@@ -34,6 +34,8 @@ $router->post('/ip-rules/revoke', [IpController::class, 'revoke']);
 $router->get('/google', [GoogleController::class, 'index']);
 $router->get('/google/connect', [GoogleController::class, 'connect']);
 $router->get('/google/callback', [GoogleController::class, 'callback']);
+$router->get('/google/campaigns', [GoogleController::class, 'campaigns']);
+$router->post('/google/exclude', [GoogleController::class, 'excludeIp']);
 $router->post('/google/disconnect', [GoogleController::class, 'disconnect']);
 $router->get('/admin', [AdminDashboardController::class, 'index']);
 $router->get('/admin/plans', [PlanController::class, 'index']);

@@ -22,6 +22,9 @@ final class GoogleOAuthService
         if ($this->clientId === '' || $this->clientSecret === '' || $this->redirectUri === '') {
             throw new RuntimeException('Google OAuth configuration is incomplete.');
         }
+        if ($this->developerToken === '') {
+            throw new RuntimeException('Google Ads developer token is not configured.');
+        }
     }
 
     public function authorizationUrl(string $state): string
@@ -61,21 +64,14 @@ final class GoogleOAuthService
 
     public function listAccessibleCustomers(string $accessToken): array
     {
-        if ($this->developerToken === '') {
-            throw new RuntimeException('Google Ads developer token is not configured.');
-        }
         $response = $this->request(
             'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers:listAccessibleCustomers',
             'GET',
             null,
-            [
-                'Authorization: Bearer ' . $accessToken,
-                'developer-token: ' . $this->developerToken
-            ]
+            ['Authorization: Bearer ' . $accessToken]
         );
-        $names = $response['resourceNames'] ?? [];
         $ids = [];
-        foreach ($names as $name) {
+        foreach (($response['resourceNames'] ?? []) as $name) {
             if (preg_match('#^customers/([0-9]{6,20})$#', (string) $name, $match)) {
                 $ids[] = $match[1];
             }
@@ -83,22 +79,56 @@ final class GoogleOAuthService
         return array_values(array_unique($ids));
     }
 
-    public function listCampaigns(string $accessToken, string $customerId): array
+    public function search(string $accessToken, string $customerId, string $query): array
     {
-        if (!preg_match('/^[0-9]{6,20}$/', $customerId)) {
-            throw new RuntimeException('Invalid Google Ads customer ID.');
-        }
+        $this->assertCustomerId($customerId);
         $response = $this->request(
             'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers/' . $customerId . '/googleAds:search',
             'POST',
-            ['query' => "SELECT campaign.id, campaign.name, campaign.status FROM campaign WHERE campaign.status != 'REMOVED' ORDER BY campaign.name"],
-            [
-                'Authorization: Bearer ' . $accessToken,
-                'developer-token: ' . $this->developerToken,
-                'Content-Type: application/json'
-            ]
+            ['query' => $query],
+            ['Authorization: Bearer ' . $accessToken]
         );
         return $response['results'] ?? [];
+    }
+
+    public function listCampaigns(string $accessToken, string $customerId): array
+    {
+        return $this->search(
+            $accessToken,
+            $customerId,
+            "SELECT campaign.id, campaign.name, campaign.status
+             FROM campaign
+             WHERE campaign.status != 'REMOVED'
+             ORDER BY campaign.name"
+        );
+    }
+
+    public function excludeIpFromCampaign(
+        string $accessToken,
+        string $customerId,
+        int $campaignId,
+        string $ipAddress
+    ): array {
+        $this->assertCustomerId($customerId);
+        if ($campaignId <= 0 || filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            throw new RuntimeException('Google Ads IP exclusion requires a valid IPv4 address and campaign.');
+        }
+
+        return $this->request(
+            'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers/' . $customerId . '/campaignCriteria:mutate',
+            'POST',
+            [
+                'operations' => [[
+                    'create' => [
+                        'campaign' => 'customers/' . $customerId . '/campaigns/' . $campaignId,
+                        'ipBlock' => ['ipAddress' => $ipAddress]
+                    ]
+                ]],
+                'partialFailure' => false,
+                'validateOnly' => false
+            ],
+            ['Authorization: Bearer ' . $accessToken]
+        );
     }
 
     private function tokenRequest(array $payload): array
@@ -113,6 +143,11 @@ final class GoogleOAuthService
 
     private function request(string $url, string $method, ?array $payload, array $headers): array
     {
+        $headers[] = 'developer-token: ' . $this->developerToken;
+        if ($payload !== null) {
+            $headers[] = 'Content-Type: application/json';
+        }
+
         $curl = curl_init($url);
         if ($curl === false) {
             throw new RuntimeException('Unable to initialize HTTP client.');
@@ -127,7 +162,8 @@ final class GoogleOAuthService
             CURLOPT_SSL_VERIFYHOST => 2
         ];
         if ($payload !== null) {
-            $options[CURLOPT_POSTFIELDS] = str_contains(implode(' ', $headers), 'application/x-www-form-urlencoded')
+            $isForm = str_contains(implode(' ', $headers), 'application/x-www-form-urlencoded');
+            $options[CURLOPT_POSTFIELDS] = $isForm
                 ? http_build_query($payload, '', '&', PHP_QUERY_RFC3986)
                 : json_encode($payload, JSON_THROW_ON_ERROR);
         }
@@ -138,8 +174,8 @@ final class GoogleOAuthService
         curl_close($curl);
 
         if (!is_string($body) || $status < 200 || $status >= 300) {
-            error_log('[AdGuard Google API] HTTP ' . $status . ' ' . $error);
-            throw new RuntimeException('Google API request failed. Check the Google connection and API configuration.');
+            error_log('[AdGuard Google API] HTTP ' . $status . ' ' . $error . ' ' . substr((string) $body, 0, 1000));
+            throw new RuntimeException('Google Ads API request failed. Verify the developer token, account access and campaign permissions.');
         }
         try {
             $decoded = json_decode($body, true, 64, JSON_THROW_ON_ERROR);
@@ -150,6 +186,13 @@ final class GoogleOAuthService
             throw new RuntimeException('Google API returned an unexpected response.');
         }
         return $decoded;
+    }
+
+    private function assertCustomerId(string $customerId): void
+    {
+        if (!preg_match('/^[0-9]{6,20}$/', $customerId)) {
+            throw new RuntimeException('Invalid Google Ads customer ID.');
+        }
     }
 
     private function apiVersion(): string
