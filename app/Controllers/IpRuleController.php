@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Core\Database;
 use App\Services\IpManagementService;
 use DateTimeImmutable;
+use RuntimeException;
 use Throwable;
 
 final class IpRuleController
@@ -73,8 +74,11 @@ final class IpRuleController
                 $expiresAt
             );
             $_SESSION['success'] = 'IP kuralı kaydedildi. Bu kayıt henüz Google Ads hesabına gönderilmedi.';
-        } catch (Throwable $exception) {
+        } catch (RuntimeException $exception) {
             $_SESSION['error'] = $exception->getMessage();
+        } catch (Throwable $exception) {
+            error_log('[AdGuard IP Rule] ' . $exception->getMessage());
+            $_SESSION['error'] = 'IP kuralı kaydedilemedi. Lütfen tekrar deneyin.';
         }
 
         redirect('/ip-rules');
