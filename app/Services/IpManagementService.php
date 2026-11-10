@@ -143,8 +143,9 @@ final class IpManagementService
         $riskScore = max(0, min(100, $riskScore));
         $threshold = max(1, min(100, (int) env('RISK_CANDIDATE_THRESHOLD', 80)));
         $minimumEvents = max(1, min(10000, (int) env('RISK_CANDIDATE_MIN_EVENTS', 3)));
+        $minimumSignals = max(1, min(100, (int) env('RISK_CANDIDATE_MIN_SIGNALS', 3)));
 
-        if ($riskScore < $threshold || $evidenceCount < $minimumEvents) {
+        if ($riskScore < $threshold || $evidenceCount < $minimumEvents || count($reasons) < $minimumSignals) {
             return null;
         }
 
@@ -172,6 +173,7 @@ final class IpManagementService
                 "SELECT id FROM ip_rules
                  WHERE website_id = :website_id AND ip_address = :ip_address
                    AND rule_type = 'deny' AND status = 'active'
+                   AND (expires_at IS NULL OR expires_at > NOW())
                  LIMIT 1 FOR UPDATE"
             );
             $activeDeny->execute(['website_id' => $websiteId, 'ip_address' => $packed]);
@@ -288,14 +290,18 @@ final class IpManagementService
             $websiteId = (int) $candidate['website_id'];
 
             $existingDeny = $this->db->prepare(
-                "SELECT id, status, reason FROM ip_rules
+                "SELECT id, status, reason, expires_at FROM ip_rules
                  WHERE website_id = :website_id AND ip_address = :ip_address
                    AND rule_type = 'deny' LIMIT 1 FOR UPDATE"
             );
             $existingDeny->execute(['website_id' => $websiteId, 'ip_address' => $packed]);
             $deny = $existingDeny->fetch(PDO::FETCH_ASSOC);
 
-            if ($deny && $deny['status'] === 'active') {
+            $denyIsActive = $deny
+                && $deny['status'] === 'active'
+                && ($deny['expires_at'] === null || strtotime((string) $deny['expires_at']) > time());
+
+            if ($denyIsActive) {
                 $updateCandidate = $this->db->prepare(
                     "UPDATE ip_rules SET status = 'revoked' WHERE id = :id"
                 );
