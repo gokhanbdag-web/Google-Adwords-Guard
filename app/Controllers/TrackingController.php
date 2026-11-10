@@ -80,7 +80,7 @@ final class TrackingController
         $pageUrl = $this->sanitizeTrackedUrl($pageUrl);
         $referrer = $referrer !== '' ? $this->sanitizeTrackedUrl($referrer) : '';
 
-        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $ip = $this->clientIp();
         $packedIp = filter_var($ip, FILTER_VALIDATE_IP) ? inet_pton($ip) : false;
         if ($packedIp === false) {
             $this->respond(400, ['success' => false, 'message' => 'Invalid client IP.']);
@@ -229,6 +229,29 @@ final class TrackingController
             error_log('[AdGuard Tracking] ' . $exception::class . ': ' . $exception->getMessage());
             $this->respond(500, ['success' => false, 'message' => 'Tracking service temporarily unavailable.']);
         }
+    }
+
+
+    private function clientIp(): string
+    {
+        $remoteAddress = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        $trustedProxies = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TRUSTED_PROXIES', ''))
+        )));
+
+        // Forwarded headers are trusted only when REMOTE_ADDR is explicitly configured.
+        if (in_array($remoteAddress, $trustedProxies, true)) {
+            $forwarded = (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
+            foreach (explode(',', $forwarded) as $candidate) {
+                $candidate = trim($candidate);
+                if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return $remoteAddress;
     }
 
     private function findWebsite(string $siteKey): ?array
