@@ -15,7 +15,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 4. Set `APP_URL`, database credentials, and a unique random `APP_KEY` of at least 32 characters.
 5. Run `composer install --no-dev --optimize-autoloader`.
 6. Import `database/seeders.sql`.
-7. Apply migrations in numeric order: `database/migrations/002_tracking_and_ip_management.sql`, then `003_google_ads_actions.sql`.
+7. Apply migrations in numeric order: `database/migrations/002_tracking_and_ip_management.sql`, `003_google_ads_actions.sql`, then `004_payments_and_renewals.sql`.
 8. Set the web server document root to `public/`. If your host requires the repository root, the root `.htaccess` forwards requests to `public/`; verify Apache rewrite support.
 9. Register the first account and promote it to admin with a controlled database operation:
    `UPDATE users SET role='admin' WHERE email='your-admin-email';`
@@ -45,7 +45,12 @@ Run one queued job every minute (or more frequently):
 The worker supports `google_ip_exclusion` jobs with JSON payload keys `connection_id`, `campaign_id`, and `ip_rule_id`. Queue rows must also include the owning `user_id` and `website_id`.
 
 ## Payment processing
-The application currently supports admin-managed manual subscription activation only. It does not claim to process online payments. A payment provider (for example PayTR or iyzico), merchant credentials, webhook verification, refund/cancellation behavior, and sandbox credentials must be selected and configured before online checkout can be enabled.
+- PayTR hosted iFrame one-time checkout and iyzico Checkout Form one-time checkout are wired into customer checkout.
+- iyzico automatic renewal uses its native Subscription API. Create monthly/yearly pricing plans for local packages in iyzico and save each reference under Admin > Plans. Configure subscription notifications at `https://YOUR_DOMAIN/payments/iyzico/webhook` and enable X-IYZ-SIGNATURE-V3.
+- Set IYZICO_MERCHANT_ID, IYZICO_API_KEY, IYZICO_SECRET_KEY and IYZICO_BASE_URL. Use sandbox credentials first.
+- PayTR automatic renewal is not enabled in this release. Its recurring path requires separate card-storage/Direct API and Non3D merchant permissions; PayTR remains available for one-time checkout.
+- Customers can cancel iyzico renewal from their dashboard. PAN/CVV are never stored by this application.
+- Test payments, callbacks, renewal notifications, cancellations and failure scenarios in sandbox before using live credentials.
 
 ## Validation
 GitHub Actions runs Composer manifest validation and PHP syntax checks on the integration branch. A successful lint run is not a substitute for MySQL integration tests, OAuth consent testing, or a production deployment rehearsal.

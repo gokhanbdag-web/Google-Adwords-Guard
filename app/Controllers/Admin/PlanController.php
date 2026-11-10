@@ -12,8 +12,20 @@ final class PlanController
     public function index(): void
     {
         requireAdmin();
-        $plans = Database::connection()->query('SELECT * FROM plans ORDER BY sort_order, id')->fetchAll(PDO::FETCH_ASSOC);
+        $pdo = Database::connection();
+        $plans = $pdo->query('SELECT * FROM plans ORDER BY sort_order, id')->fetchAll(PDO::FETCH_ASSOC);
+        $providerMappings = $pdo->query("SELECT plan_id,provider_plan_reference FROM payment_provider_plans WHERE provider='iyzico' AND is_active=1")->fetchAll(PDO::FETCH_KEY_PAIR);
         require BASE_PATH . '/resources/views/admin/plans.php';
+    }
+
+    public function saveProviderMapping(): void
+    {
+        requireAdmin();
+        $planId=(int)($_POST['plan_id']??0); $reference=trim((string)($_POST['provider_plan_reference']??''));
+        if($planId<1||$reference===''||mb_strlen($reference)>190){$_SESSION['error']='iyzico plan referans kodu geçersiz.';redirect('/admin/plans');}
+        $stmt=Database::connection()->prepare("INSERT INTO payment_provider_plans (plan_id,provider,provider_plan_reference,is_active)
+            VALUES (:plan,'iyzico',:reference,1) ON DUPLICATE KEY UPDATE provider_plan_reference=VALUES(provider_plan_reference),is_active=1");
+        $stmt->execute(['plan'=>$planId,'reference'=>$reference]); $_SESSION['success']='iyzico abonelik planı eşleştirildi.'; redirect('/admin/plans');
     }
 
     public function store(): void

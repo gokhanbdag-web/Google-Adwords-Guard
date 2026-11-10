@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Controllers\AuthController;
+use App\Controllers\PaymentController;
 use App\Controllers\HomeController;
 use App\Controllers\PageController;
 use App\Controllers\PricingController;
@@ -40,7 +41,6 @@ $router->get('/google/callback', [GoogleController::class, 'callback']);
 $router->get('/google/campaigns', [GoogleController::class, 'campaigns']);
 $router->post('/google/exclude', [GoogleController::class, 'excludeIp']);
 $router->post('/google/disconnect', [GoogleController::class, 'disconnect']);
-$router->post('/google/manager', [GoogleController::class, 'setManager']);
 $router->get('/admin', [AdminDashboardController::class, 'index']);
 $router->get('/admin/plans', [PlanController::class, 'index']);
 $router->post('/admin/plans/store', [PlanController::class, 'store']);
@@ -53,3 +53,14 @@ $router->post('/admin/pages/delete', [AdminPageController::class, 'delete']);
 $router->get('/admin/subscriptions', [SubscriptionController::class, 'index']);
 $router->post('/admin/subscriptions/activate', [SubscriptionController::class, 'activate']);
 $router->post('/admin/subscriptions/cancel', [SubscriptionController::class, 'cancel']);
+
+$router->get('/payments/checkout', [PaymentController::class, 'checkout']);
+$router->post('/payments/start', [PaymentController::class, 'start']);
+$router->get('/payments/paytr', [PaymentController::class, 'paytrPage']);
+$router->get('/payments/iyzico', [PaymentController::class, 'iyzicoPage']);
+$router->post('/payments/paytr/callback', [PaymentController::class, 'paytrCallback']);
+$router->post('/payments/iyzico/callback', [PaymentController::class, 'iyzicoCallback']);
+$router->post('/payments/iyzico/webhook', [PaymentController::class, 'iyzicoSubscriptionWebhook']);
+$router->post('/payments/cancel-renewal', [PaymentController::class, 'cancelRenewal']);
+$router->get('/payments/return', [PaymentController::class, 'returnPage']);
+$router->post('/admin/plans/provider-mapping', [PlanController::class, 'saveProviderMapping']);
