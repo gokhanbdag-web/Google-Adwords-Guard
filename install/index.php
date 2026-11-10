@@ -177,7 +177,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
 if (empty($_SESSION['installer_token'])) $_SESSION['installer_token'] = bin2hex(random_bytes(32));
 $token = $_SESSION['installer_token'];
-$defaultUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+$scriptDirectory = str_replace('\\\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
+// The installer is loaded internally by the public front controller. Never
+// expose /public in the site's canonical URL when installed in a subdirectory.
+$scriptDirectory = preg_replace('#/public$#', '', rtrim($scriptDirectory, '/'));
+$basePath = $scriptDirectory === '' || $scriptDirectory === '.' ? '' : $scriptDirectory;
+$defaultUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $basePath;
 if ($defaultUrl === '') $defaultUrl = 'http://localhost';
 ?><!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AdGuard Pro Kurulumu</title>
