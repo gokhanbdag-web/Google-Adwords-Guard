@@ -8,7 +8,9 @@
     "ext-json": "*",
     "ext-openssl": "*",
     "ext-curl": "*",
-    "ext-dom": "*"
+    "ext-dom": "*",
+    "ext-mbstring": "*",
+    "ext-pdo_mysql": "*"
   },
   "autoload": {
     "psr-4": {
