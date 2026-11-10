@@ -139,6 +139,7 @@ final class GoogleController
             "SELECT r.id, INET6_NTOA(r.ip_address) AS ip_text, w.name AS website_name
              FROM ip_rules r INNER JOIN websites w ON w.id = r.website_id
              WHERE w.user_id = :user_id AND r.rule_type = 'deny' AND r.status = 'active'
+               AND (r.expires_at IS NULL OR r.expires_at > NOW())
              ORDER BY r.created_at DESC LIMIT 300"
         );
         $rulesQuery->execute(['user_id' => $userId]);
@@ -179,6 +180,7 @@ final class GoogleController
              FROM ip_rules r INNER JOIN websites w ON w.id = r.website_id
              WHERE r.id = :rule_id AND w.user_id = :user_id
                AND r.rule_type = 'deny' AND r.status = 'active'
+               AND (r.expires_at IS NULL OR r.expires_at > NOW())
              LIMIT 1"
         );
         $ruleQuery->execute(['rule_id' => $ruleId, 'user_id' => $userId]);
