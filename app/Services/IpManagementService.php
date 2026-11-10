@@ -163,16 +163,35 @@ final class IpManagementService
             )"
         );
 
-        $statement->execute([
-            'user_id' => $userId,
-            'website_id' => $websiteId,
-            'ip_address' => $packedIp,
-            'rule_type' => $ruleType,
-            'reason' => $reason,
-            'expires_at' => $expiresAt
-        ]);
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) {
+            $this->db->beginTransaction();
+        }
 
-        return (int) $this->db->lastInsertId();
+        try {
+            $statement->execute([
+                'user_id' => $userId,
+                'website_id' => $websiteId,
+                'ip_address' => $packedIp,
+                'rule_type' => $ruleType,
+                'reason' => $reason,
+                'expires_at' => $expiresAt
+            ]);
+
+            $id = (int) $this->db->lastInsertId();
+            $this->recordHistory($id, $websiteId, $userId, $packedIp, 'created', null, $ruleType, null, 'active', $reason);
+
+            if ($ownsTransaction) {
+                $this->db->commit();
+            }
+
+            return $id;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     /**
@@ -258,6 +277,7 @@ final class IpManagementService
                     'reason' => $encodedReasons,
                     'id' => (int) $candidate['id']
                 ]);
+                $this->recordHistory((int) $candidate['id'], $websiteId, $userId, $packedIp, 'updated', 'deny', 'deny', 'pending', 'pending', $encodedReasons);
 
                 if ($ownsTransaction) {
                     $this->db->commit();
@@ -304,6 +324,7 @@ final class IpManagementService
             ]);
 
             $id = (int) $this->db->lastInsertId();
+            $this->recordHistory($id, $websiteId, $userId, $packedIp, 'created', null, 'deny', null, 'pending', $encodedReasons);
 
             if ($ownsTransaction) {
                 $this->db->commit();
@@ -330,46 +351,174 @@ final class IpManagementService
         int $userId,
         int $candidateId
     ): bool {
-        $statement = $this->db->prepare(
-            "UPDATE ip_rules
-             SET status = 'active',
-                 source = 'manual'
-             WHERE id = :id
-               AND user_id = :user_id
-               AND rule_type = 'deny'
-               AND source = 'automatic'
-               AND status = 'pending'"
-        );
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) {
+            $this->db->beginTransaction();
+        }
 
-        $statement->execute([
-            'id' => $candidateId,
-            'user_id' => $userId
-        ]);
+        try {
+            $lookup = $this->db->prepare(
+                "SELECT website_id, ip_address, rule_type, status, reason
+                 FROM ip_rules
+                 WHERE id = :id
+                   AND user_id = :user_id
+                   AND rule_type = 'deny'
+                   AND source = 'automatic'
+                   AND status = 'pending'
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+            $lookup->execute(['id' => $candidateId, 'user_id' => $userId]);
+            $rule = $lookup->fetch(PDO::FETCH_ASSOC);
 
-        return $statement->rowCount() === 1;
+            if (!$rule) {
+                if ($ownsTransaction) {
+                    $this->db->commit();
+                }
+                return false;
+            }
+
+            $statement = $this->db->prepare(
+                "UPDATE ip_rules
+                 SET status = 'active',
+                     source = 'manual'
+                 WHERE id = :id
+                   AND user_id = :user_id
+                   AND rule_type = 'deny'
+                   AND source = 'automatic'
+                   AND status = 'pending'"
+            );
+            $statement->execute(['id' => $candidateId, 'user_id' => $userId]);
+            $changed = $statement->rowCount() === 1;
+
+            if ($changed) {
+                $this->recordHistory(
+                    $candidateId,
+                    (int) $rule['website_id'],
+                    $userId,
+                    (string) $rule['ip_address'],
+                    'approved',
+                    (string) $rule['rule_type'],
+                    (string) $rule['rule_type'],
+                    (string) $rule['status'],
+                    'active',
+                    (string) $rule['reason']
+                );
+            }
+
+            if ($ownsTransaction) {
+                $this->db->commit();
+            }
+
+            return $changed;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
-    /**
-     * Revokes an existing IP rule.
-     */
     public function revokeRule(
         int $userId,
         int $ruleId
     ): bool {
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) {
+            $this->db->beginTransaction();
+        }
+
+        try {
+            $lookup = $this->db->prepare(
+                "SELECT website_id, ip_address, rule_type, status, reason
+                 FROM ip_rules
+                 WHERE id = :id
+                   AND user_id = :user_id
+                   AND status IN ('active', 'pending')
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+            $lookup->execute(['id' => $ruleId, 'user_id' => $userId]);
+            $rule = $lookup->fetch(PDO::FETCH_ASSOC);
+
+            if (!$rule) {
+                if ($ownsTransaction) {
+                    $this->db->commit();
+                }
+                return false;
+            }
+
+            $statement = $this->db->prepare(
+                "UPDATE ip_rules
+                 SET status = 'revoked'
+                 WHERE id = :id
+                   AND user_id = :user_id
+                   AND status IN ('active', 'pending')"
+            );
+            $statement->execute(['id' => $ruleId, 'user_id' => $userId]);
+            $changed = $statement->rowCount() === 1;
+
+            if ($changed) {
+                $this->recordHistory(
+                    $ruleId,
+                    (int) $rule['website_id'],
+                    $userId,
+                    (string) $rule['ip_address'],
+                    'revoked',
+                    (string) $rule['rule_type'],
+                    (string) $rule['rule_type'],
+                    (string) $rule['status'],
+                    'revoked',
+                    (string) $rule['reason']
+                );
+            }
+
+            if ($ownsTransaction) {
+                $this->db->commit();
+            }
+
+            return $changed;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    private function recordHistory(
+        int $ruleId,
+        int $websiteId,
+        int $actorUserId,
+        string $packedIp,
+        string $action,
+        ?string $oldRuleType,
+        ?string $newRuleType,
+        ?string $oldStatus,
+        ?string $newStatus,
+        ?string $reason
+    ): void {
         $statement = $this->db->prepare(
-            "UPDATE ip_rules
-             SET status = 'revoked'
-             WHERE id = :id
-               AND user_id = :user_id
-               AND status IN ('active', 'pending')"
+            'INSERT INTO ip_rule_history (
+                ip_rule_id, website_id, actor_user_id, ip_address, action,
+                old_rule_type, new_rule_type, old_status, new_status, reason, created_at
+             ) VALUES (
+                :ip_rule_id, :website_id, :actor_user_id, :ip_address, :action,
+                :old_rule_type, :new_rule_type, :old_status, :new_status, :reason, NOW()
+             )'
         );
 
-        $statement->execute([
-            'id' => $ruleId,
-            'user_id' => $userId
-        ]);
-
-        return $statement->rowCount() === 1;
+        $statement->bindValue(':ip_rule_id', $ruleId, PDO::PARAM_INT);
+        $statement->bindValue(':website_id', $websiteId, PDO::PARAM_INT);
+        $statement->bindValue(':actor_user_id', $actorUserId, PDO::PARAM_INT);
+        $statement->bindValue(':ip_address', $packedIp, PDO::PARAM_LOB);
+        $statement->bindValue(':action', $action);
+        $statement->bindValue(':old_rule_type', $oldRuleType);
+        $statement->bindValue(':new_rule_type', $newRuleType);
+        $statement->bindValue(':old_status', $oldStatus);
+        $statement->bindValue(':new_status', $newStatus);
+        $statement->bindValue(':reason', $reason === null ? null : mb_substr($reason, 0, 500));
+        $statement->execute();
     }
 
     private function hasAllowRule(
