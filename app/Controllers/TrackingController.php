@@ -1,11 +1,14 @@
-
 <?php
-
 declare(strict_types=1);
 
-namespace App\Controllers;
+namespace App\\Controllers;
 
+use App\\Services\\BotDetectionService;
+use App\\Services\\IpManagementService;
+use App\\Services\\QuotaService;
+use App\\Services\\RiskScoringService;
 use PDO;
+use PDOException;
 use Throwable;
 
 final class TrackingController
@@ -14,59 +17,33 @@ final class TrackingController
     private const MAX_USER_AGENT_LENGTH = 1000;
     private const MAX_URL_LENGTH = 2048;
 
-    public function __construct(
-        private readonly PDO $db
-    ) {
+    public function __construct(private readonly PDO $db)
+    {
     }
 
     public function handle(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-            $this->respond(405, [
-                'success' => false,
-                'message' => 'Method not allowed.'
-            ]);
+            $this->respond(405, ['success' => false, 'message' => 'Method not allowed.']);
             return;
         }
 
         $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
-
         if ($contentLength > self::MAX_BODY_SIZE) {
-            $this->respond(413, [
-                'success' => false,
-                'message' => 'Request too large.'
-            ]);
+            $this->respond(413, ['success' => false, 'message' => 'Request too large.']);
             return;
         }
 
-        $rawBody = file_get_contents(
-            'php://input',
-            false,
-            null,
-            0,
-            self::MAX_BODY_SIZE + 1
-        );
-
+        $rawBody = file_get_contents('php://input', false, null, 0, self::MAX_BODY_SIZE + 1);
         if ($rawBody === false || strlen($rawBody) > self::MAX_BODY_SIZE) {
-            $this->respond(400, [
-                'success' => false,
-                'message' => 'Invalid request.'
-            ]);
+            $this->respond(400, ['success' => false, 'message' => 'Invalid request.']);
             return;
         }
 
         $data = json_decode($rawBody, true);
-
         if (!is_array($data)) {
             $data = [];
-        }
-
-        if (empty($data)) {
-            parse_str($rawBody, $parsed);
-
-            if (is_array($parsed)) {
-                $data = $parsed;
-            }
+            parse_str($rawBody, $data);
         }
 
         $siteKey = trim((string) ($data['site_key'] ?? ''));
@@ -75,274 +52,213 @@ final class TrackingController
         $referrer = trim((string) ($data['referrer'] ?? ''));
 
         if (!preg_match('/^[a-f0-9]{64}$/i', $siteKey)) {
-            $this->respond(400, [
-                'success' => false,
-                'message' => 'Invalid site key.'
-            ]);
+            $this->respond(400, ['success' => false, 'message' => 'Invalid site key.']);
             return;
         }
-
         if (!$this->isValidUuid($eventId)) {
-            $this->respond(400, [
-                'success' => false,
-                'message' => 'Invalid event identifier.'
-            ]);
+            $this->respond(400, ['success' => false, 'message' => 'Invalid event identifier.']);
             return;
         }
-
         if (!$this->isValidWebUrl($pageUrl)) {
-            $this->respond(400, [
-                'success' => false,
-                'message' => 'Invalid page URL.'
-            ]);
+            $this->respond(400, ['success' => false, 'message' => 'Invalid page URL.']);
             return;
         }
-
         if ($referrer !== '' && !$this->isValidWebUrl($referrer)) {
             $referrer = '';
         }
 
-        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
-
+        $clientIp = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
         if (!filter_var($clientIp, FILTER_VALIDATE_IP)) {
-            $this->respond(400, [
-                'success' => false,
-                'message' => 'Unable to determine client IP.'
-            ]);
+            $this->respond(400, ['success' => false, 'message' => 'Unable to determine client IP.']);
             return;
         }
-
         $packedIp = inet_pton($clientIp);
-
         if ($packedIp === false) {
-            $this->respond(400, [
-                'success' => false,
-                'message' => 'Invalid client IP.'
-            ]);
+            $this->respond(400, ['success' => false, 'message' => 'Invalid client IP.']);
             return;
         }
 
-        $userAgent = substr(
-            (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
-            0,
-            self::MAX_USER_AGENT_LENGTH
-        );
+        $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, self::MAX_USER_AGENT_LENGTH);
 
         try {
             $website = $this->findWebsite($siteKey);
-
             if (!$website || $website['status'] !== 'active') {
-                $this->respond(403, [
-                    'success' => false,
-                    'message' => 'Website is not active.'
-                ]);
+                $this->respond(403, ['success' => false, 'message' => 'Website is not active.']);
                 return;
             }
 
             $origin = $this->getRequestOrigin();
-
-            if ($origin === null || !$this->originMatchesDomain(
-                $origin,
-                (string) $website['domain']
-            )) {
-                $this->respond(403, [
-                    'success' => false,
-                    'message' => 'Origin verification failed.'
-                ]);
+            if ($origin === null || !$this->originMatchesDomain($origin, (string) $website['domain'])) {
+                $this->respond(403, ['success' => false, 'message' => 'Origin verification failed.']);
                 return;
             }
-
             $this->setCorsHeaders($origin);
 
             $this->db->beginTransaction();
 
-            $insert = $this->db->prepare(
-                "INSERT INTO visits (
-                    website_id,
-                    event_id,
-                    ip_address,
-                    user_agent,
-                    page_url,
-                    referrer,
-                    country_code,
-                    risk_score,
-                    risk_level,
-                    detection_reasons,
-                    is_suspicious,
-                    created_at
-                ) VALUES (
-                    :website_id,
-                    :event_id,
-                    :ip_address,
-                    :user_agent,
-                    :page_url,
-                    :referrer,
-                    NULL,
-                    0,
-                    'low',
-                    :detection_reasons,
-                    0,
-                    NOW()
-                )"
+            // Duplicate events do not consume the account's daily quota.
+            $duplicate = $this->db->prepare(
+                'SELECT id FROM visits WHERE website_id = :website_id AND event_id = :event_id LIMIT 1'
             );
-
-            try {
-                $insert->execute([
-                    'website_id' => (int) $website['id'],
-                    'event_id' => $eventId,
-                    'ip_address' => $packedIp,
-                    'user_agent' => $userAgent,
-                    'page_url' => $pageUrl,
-                    'referrer' => $referrer !== '' ? $referrer : null,
-                    'detection_reasons' => json_encode(
-                        [],
-                        JSON_THROW_ON_ERROR
-                    )
-                ]);
-            } catch (Throwable $exception) {
-                if (
-                    $exception instanceof \PDOException &&
-                    $exception->getCode() === '23000'
-                ) {
-                    $this->db->rollBack();
-
-                    $this->respond(200, [
-                        'success' => true,
-                        'duplicate' => true
-                    ]);
-
-                    return;
-                }
-
-                throw $exception;
+            $duplicate->execute([
+                'website_id' => (int) $website['id'],
+                'event_id' => $eventId
+            ]);
+            if ($duplicate->fetchColumn()) {
+                $this->db->rollBack();
+                $this->respond(200, ['success' => true, 'duplicate' => true]);
+                return;
             }
 
-            $usage = $this->db->prepare(
-                "INSERT INTO daily_usage (
-                    user_id,
-                    usage_date,
-                    visits_count
-                ) VALUES (
-                    :user_id,
-                    CURDATE(),
-                    1
-                )
-                ON DUPLICATE KEY UPDATE
-                    visits_count = visits_count + 1"
-            );
+            $quota = (new QuotaService($this->db))->consumeVisit((int) $website['user_id']);
+            if (!$quota['allowed']) {
+                $this->db->rollBack();
+                $this->respond(429, [
+                    'success' => false,
+                    'message' => 'Daily visit quota exceeded.',
+                    'quota' => $quota
+                ]);
+                return;
+            }
 
-            $usage->execute([
-                'user_id' => (int) $website['user_id']
-            ]);
+            $recentStatement = $this->db->prepare(
+                'SELECT page_url, created_at
+                 FROM visits
+                 WHERE website_id = :website_id
+                   AND ip_address = :ip_address
+                   AND created_at >= NOW() - INTERVAL 60 SECOND
+                 ORDER BY created_at DESC
+                 LIMIT 100'
+            );
+            $recentStatement->bindValue(':website_id', (int) $website['id'], PDO::PARAM_INT);
+            $recentStatement->bindValue(':ip_address', $packedIp, PDO::PARAM_LOB);
+            $recentStatement->execute();
+            $recentVisits = $recentStatement->fetchAll(PDO::FETCH_ASSOC);
+
+            $detection = (new BotDetectionService())->analyze([
+                'user_agent' => $userAgent,
+                'page_url' => $pageUrl
+            ], $recentVisits);
+            $risk = (new RiskScoringService())->calculate($detection);
+
+            $insert = $this->db->prepare(
+                "INSERT INTO visits (
+                    website_id, event_id, ip_address, user_agent, page_url,
+                    referrer, country_code, risk_score, risk_level,
+                    detection_reasons, is_suspicious, created_at
+                ) VALUES (
+                    :website_id, :event_id, :ip_address, :user_agent, :page_url,
+                    :referrer, NULL, :risk_score, :risk_level,
+                    :detection_reasons, :is_suspicious, NOW()
+                )"
+            );
+            $insert->bindValue(':website_id', (int) $website['id'], PDO::PARAM_INT);
+            $insert->bindValue(':event_id', $eventId);
+            $insert->bindValue(':ip_address', $packedIp, PDO::PARAM_LOB);
+            $insert->bindValue(':user_agent', $userAgent);
+            $insert->bindValue(':page_url', $pageUrl);
+            $insert->bindValue(':referrer', $referrer !== '' ? $referrer : null);
+            $insert->bindValue(':risk_score', (int) $risk['score'], PDO::PARAM_INT);
+            $insert->bindValue(':risk_level', $risk['level']);
+            $insert->bindValue(
+                ':detection_reasons',
+                json_encode($risk['reasons'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            );
+            $insert->bindValue(':is_suspicious', (int) $risk['is_suspicious'], PDO::PARAM_INT);
+            $insert->execute();
+
+            // High-risk IPs become review candidates only after repeated evidence.
+            // This does not block traffic or modify Google Ads.
+            if ($risk['is_block_candidate'] && $risk['classification'] !== 'known_crawler') {
+                $evidence = $this->db->prepare(
+                    'SELECT COUNT(*) FROM visits
+                     WHERE website_id = :website_id
+                       AND ip_address = :ip_address
+                       AND created_at >= NOW() - INTERVAL 24 HOUR'
+                );
+                $evidence->bindValue(':website_id', (int) $website['id'], PDO::PARAM_INT);
+                $evidence->bindValue(':ip_address', $packedIp, PDO::PARAM_LOB);
+                $evidence->execute();
+                $evidenceCount = (int) $evidence->fetchColumn() + 1;
+
+                if ($evidenceCount >= 3) {
+                    (new IpManagementService($this->db))->createCandidate(
+                        (int) $website['user_id'],
+                        (int) $website['id'],
+                        $clientIp,
+                        (int) $risk['score'],
+                        $evidenceCount,
+                        $risk['reasons']
+                    );
+                }
+            }
 
             $this->db->commit();
-
             $this->respond(200, [
                 'success' => true,
-                'duplicate' => false
+                'duplicate' => false,
+                'risk_score' => (int) $risk['score'],
+                'risk_level' => $risk['level']
             ]);
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
-
-            error_log(
-                '[AdGuard Tracking] ' .
-                $exception::class . ': ' .
-                $exception->getMessage()
-            );
-
-            $this->respond(500, [
-                'success' => false,
-                'message' => 'Tracking service temporarily unavailable.'
-            ]);
+            if ($exception instanceof PDOException && $exception->getCode() === '23000') {
+                $this->respond(200, ['success' => true, 'duplicate' => true]);
+                return;
+            }
+            error_log('[AdGuard Tracking] ' . $exception::class . ': ' . $exception->getMessage());
+            $this->respond(500, ['success' => false, 'message' => 'Tracking service temporarily unavailable.']);
         }
     }
 
     private function findWebsite(string $siteKey): ?array
     {
         $statement = $this->db->prepare(
-            "SELECT id, user_id, domain, site_key, status
-             FROM websites
-             WHERE site_key = :site_key
-             LIMIT 1"
+            'SELECT id, user_id, domain, site_key, status FROM websites WHERE site_key = :site_key LIMIT 1'
         );
-
-        $statement->execute([
-            'site_key' => $siteKey
-        ]);
-
+        $statement->execute(['site_key' => $siteKey]);
         $website = $statement->fetch(PDO::FETCH_ASSOC);
-
         return $website ?: null;
     }
 
     private function getRequestOrigin(): ?string
     {
         $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
-
         if ($origin !== '') {
             return $origin;
         }
-
         $referer = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
-
-        if ($referer !== '') {
-            $parts = parse_url($referer);
-
-            if (
-                is_array($parts) &&
-                isset($parts['scheme'], $parts['host'])
-            ) {
-                return strtolower($parts['scheme']) .
-                    '://' .
-                    strtolower($parts['host']) .
-                    (isset($parts['port']) ? ':' . $parts['port'] : '');
-            }
+        if ($referer === '') {
+            return null;
         }
-
-        return null;
+        $parts = parse_url($referer);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+        return strtolower($parts['scheme']) . '://' . strtolower($parts['host'])
+            . (isset($parts['port']) ? ':' . $parts['port'] : '');
     }
 
-    private function originMatchesDomain(
-        string $origin,
-        string $registeredDomain
-    ): bool {
-        $originParts = parse_url($origin);
-
-        if (
-            !is_array($originParts) ||
-            !isset($originParts['scheme'], $originParts['host'])
-        ) {
+    private function originMatchesDomain(string $origin, string $registeredDomain): bool
+    {
+        $parts = parse_url($origin);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
             return false;
         }
-
-        if (!in_array(
-            strtolower($originParts['scheme']),
-            ['http', 'https'],
-            true
-        )) {
+        if (!in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
             return false;
         }
-
-        $host = strtolower(rtrim($originParts['host'], '.'));
+        $host = strtolower(rtrim($parts['host'], '.'));
         $domain = strtolower(trim($registeredDomain));
-
-        if (
-            $host === '' ||
-            $domain === '' ||
-            str_contains($host, '/') ||
-            str_contains($domain, '/')
-        ) {
+        if ($host === '' || $domain === '' || str_contains($host, '/') || str_contains($domain, '/')) {
             return false;
         }
-
         if (filter_var($host, FILTER_VALIDATE_IP)) {
             return hash_equals($domain, $host);
         }
-
-        return $host === $domain ||
-            str_ends_with($host, '.' . $domain);
+        return $host === $domain || str_ends_with($host, '.' . $domain);
     }
 
     private function isValidUuid(string $value): bool
@@ -355,25 +271,13 @@ final class TrackingController
 
     private function isValidWebUrl(string $url): bool
     {
-        if (
-            $url === '' ||
-            strlen($url) > self::MAX_URL_LENGTH ||
-            filter_var($url, FILTER_VALIDATE_URL) === false
-        ) {
+        if ($url === '' || strlen($url) > self::MAX_URL_LENGTH || filter_var($url, FILTER_VALIDATE_URL) === false) {
             return false;
         }
-
         $parts = parse_url($url);
-
-        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
-            return false;
-        }
-
-        return in_array(
-            strtolower($parts['scheme']),
-            ['http', 'https'],
-            true
-        );
+        return is_array($parts)
+            && isset($parts['scheme'], $parts['host'])
+            && in_array(strtolower($parts['scheme']), ['http', 'https'], true);
     }
 
     private function setCorsHeaders(string $origin): void
@@ -388,16 +292,9 @@ final class TrackingController
     private function respond(int $status, array $payload): void
     {
         http_response_code($status);
-
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store, no-cache, must-revalidate');
         header('X-Content-Type-Options: nosniff');
-
-        echo json_encode(
-            $payload,
-            JSON_UNESCAPED_UNICODE |
-            JSON_UNESCAPED_SLASHES |
-            JSON_INVALID_UTF8_SUBSTITUTE
-        );
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 }
