@@ -95,7 +95,7 @@ final class GoogleController
             $_SESSION['success'] = count($customers) . ' Google Ads hesabı bağlandı.';
         } catch (Throwable $e) {
             error_log('[AdGuard Google OAuth] ' . $e::class . ': ' . $e->getMessage());
-            $_SESSION['error'] = 'Google Ads hesabı bağlanamadı. Google OAuth ve Developer Token ayarlarını kontrol edin.';
+            $_SESSION['error'] = 'Google Ads hesabı bağlanamadı. Google OAuth ve Google Cloud proje erişim ayarlarını kontrol edin.';
         }
         redirect('/google');
     }
