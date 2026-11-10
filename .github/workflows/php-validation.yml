@@ -58,6 +58,17 @@ jobs:
           mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/004_google_ads_account_exclusions.sql
           mysql --host=127.0.0.1 --user=root --password=root adguard < database/migrations/005_payments_and_renewals.sql
 
+      - name: Import public CMS content twice and verify idempotence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/updates/20261111_public_cms_content.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < database/updates/20261111_public_cms_content.sql
+          pages=$(mysql --host=127.0.0.1 --user=root --password=root adguard -Nse "SELECT COUNT(*) FROM pages WHERE slug IN ('home','ozellikler','nasil-calisir','sss','hakkimizda','iletisim','privacy','kvkk','cerez-politikasi','kullanim-sartlari','iade-iptal','fiyatlandirma');")
+          menus=$(mysql --host=127.0.0.1 --user=root --password=root adguard -Nse "SELECT COUNT(*) FROM menus WHERE (location='header' AND url IN ('/page?slug=ozellikler','/page?slug=nasil-calisir','/pricing','/page?slug=sss','/page?slug=iletisim')) OR (location='footer' AND url IN ('/page?slug=hakkimizda','/privacy','/page?slug=kvkk','/page?slug=cerez-politikasi','/page?slug=kullanim-sartlari','/page?slug=iade-iptal','/page?slug=iletisim'));")
+          test "$pages" = "12"
+          test "$menus" = "12"
+
       - name: Run risk regression tests
         run: php tests/run.php
 
