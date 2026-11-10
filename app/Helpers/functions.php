@@ -22,11 +22,16 @@ function e(mixed $value): string
     );
 }
 
+function url(string $path = '/'): string
+{
+    $base = rtrim((string) env('APP_URL', ''), '/');
+    $normalizedPath = '/' . ltrim($path, '/');
+    return $base . $normalizedPath;
+}
+
 function redirect(string $path, int $status = 302): never
 {
-    $url = str_starts_with($path, 'http')
-        ? $path
-        : rtrim((string) env('APP_URL', ''), '/') . '/' . ltrim($path, '/');
+    $url = str_starts_with($path, 'http') ? $path : url($path);
 
     header('Location: ' . $url, true, $status);
     exit;
