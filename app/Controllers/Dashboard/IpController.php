@@ -76,7 +76,7 @@ final class IpController
             );
             $_SESSION['success'] = 'IP kuralı kaydedildi.';
             redirect('/ip-rules');
-        } catch (\\RuntimeException $e) {
+        } catch (\RuntimeException $e) {
             $_SESSION['error'] = $e->getMessage();
             redirect('/ip-rules/create');
         } catch (Throwable $e) {
