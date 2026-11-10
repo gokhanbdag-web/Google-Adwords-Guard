@@ -66,7 +66,7 @@ The cleanup command runs only from the command line. Choose and disclose a reten
 ## Safety defaults
 
 - Risk scoring is advisory and does not itself block a visitor.
-- Repeated high-risk activity creates a pending IP review candidate.
+- Repeated high-risk activity creates a pending IP review candidate. Tune this with `RISK_CANDIDATE_THRESHOLD`, `RISK_CANDIDATE_MIN_EVENTS`, and `RISK_CANDIDATE_MIN_SIGNALS`; candidates are never auto-approved or automatically sent to Google Ads.
 - A candidate is not an active deny rule until a user reviews and approves it.
 - Google Ads writes are disabled by default. Enable them only after validating OAuth, account selection, campaign eligibility, confirmation, audit logging, and API error handling with a test account.
 - Never commit `.env`, access tokens, refresh tokens, private keys, or production database credentials.
