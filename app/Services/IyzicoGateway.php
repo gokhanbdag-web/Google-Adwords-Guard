@@ -9,8 +9,7 @@ final class IyzicoGateway
 {
     public function initializeCheckout(array $order, array $customer): array
     {
-        $path = '/payment/iyzipos/checkoutform/initialize/auth/ecom';
-        $conversationId = $order['merchant_order_id'];
+        $conversationId = (string) $order['merchant_order_id'];
         $nameParts = preg_split('/\s+/', trim((string) $customer['name']), 2) ?: [];
         $payload = [
             'locale' => 'tr',
@@ -50,13 +49,13 @@ final class IyzicoGateway
                 'price' => number_format((float) $order['amount'], 2, '.', '')
             ]]
         ];
-        $response = $this->request('POST', $path, $payload);
+        $response = $this->request('POST', '/payment/iyzipos/checkoutform/initialize/auth/ecom', $payload);
         if (($response['status'] ?? '') !== 'success' || empty($response['token'])) {
             throw new RuntimeException('iyzico ödeme formu oluşturulamadı: ' . (string) ($response['errorMessage'] ?? 'Sağlayıcı hatası'));
         }
         return [
             'token' => (string) $response['token'],
-            'content' => (string) ($response['checkoutFormContent'] ?? ''),
+            'content' => (string) ($response['checkoutFormContent'] ?? $response['htmlContent'] ?? ''),
             'payment_page_url' => (string) ($response['paymentPageUrl'] ?? '')
         ];
     }
@@ -93,7 +92,7 @@ final class IyzicoGateway
         }
         return [
             'token' => (string) $response['token'],
-            'content' => (string) ($response['checkoutFormContent'] ?? '')
+            'content' => (string) ($response['checkoutFormContent'] ?? $response['htmlContent'] ?? '')
         ];
     }
 
@@ -111,6 +110,31 @@ final class IyzicoGateway
         return $this->request('GET', '/v2/subscription/checkoutform/' . rawurlencode($token), []);
     }
 
+    public function verifySubscriptionWebhook(array $payload, string $signature): bool
+    {
+        $secret = (string) env('IYZICO_SECRET_KEY', '');
+        $merchantId = (string) env('IYZICO_MERCHANT_ID', '');
+        if ($secret === '' || $merchantId === '' || $signature === '') {
+            return false;
+        }
+        $message = $secret . $merchantId .
+            (string) ($payload['iyziEventType'] ?? '') .
+            (string) ($payload['subscriptionReferenceCode'] ?? '') .
+            (string) ($payload['orderReferenceCode'] ?? '') .
+            (string) ($payload['customerReferenceCode'] ?? '');
+        $expected = hash_hmac('sha256', $message, $secret);
+        return hash_equals(strtolower($expected), strtolower($signature));
+    }
+
+    public function cancelSubscription(string $referenceCode): array
+    {
+        return $this->request(
+            'POST',
+            '/v2/subscription/subscriptions/' . rawurlencode($referenceCode) . '/cancel',
+            ['subscriptionReferenceCode' => $referenceCode]
+        );
+    }
+
     private function request(string $method, string $path, array $payload): array
     {
         $apiKey = (string) env('IYZICO_API_KEY', '');
@@ -122,8 +146,7 @@ final class IyzicoGateway
         $body = $method === 'GET' ? '' : json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $random = (string) (int) (microtime(true) * 1000) . bin2hex(random_bytes(5));
         $signature = hash_hmac('sha256', $random . $path . $body, $secret);
-        $authString = 'apiKey:' . $apiKey . '&randomKey:' . $random . '&signature:' . $signature;
-        $authorization = 'IYZWSv2 ' . base64_encode($authString);
+        $authorization = 'IYZWSv2 ' . base64_encode('apiKey:' . $apiKey . '&randomKey:' . $random . '&signature:' . $signature);
         $ch = curl_init($base . $path);
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method,
@@ -133,11 +156,7 @@ final class IyzicoGateway
             CURLOPT_TIMEOUT => 30,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'Authorization: ' . $authorization,
-                'x-iyzi-rnd: ' . $random
-            ]
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: ' . $authorization, 'x-iyzi-rnd: ' . $random]
         ]);
         $raw = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
