@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     email_verified_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS plans (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS plans (
     sort_order INT NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS subscriptions (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     INDEX idx_subscription_user_status (user_id, status),
     CONSTRAINT fk_subscription_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_subscription_plan FOREIGN KEY (plan_id) REFERENCES plans(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS websites (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS websites (
     INDEX idx_website_user (user_id),
     INDEX idx_website_domain (domain),
     CONSTRAINT fk_website_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS visits (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS visits (
     INDEX idx_visit_ip_time (ip_address, created_at),
     INDEX idx_visit_website_time (website_id, created_at),
     CONSTRAINT fk_visit_website FOREIGN KEY (website_id) REFERENCES websites(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ip_rules (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS ip_rules (
     UNIQUE KEY uq_ip_rule (website_id, ip_address, rule_type),
     INDEX idx_ip_rule_status (website_id, status),
     CONSTRAINT fk_ip_rule_website FOREIGN KEY (website_id) REFERENCES websites(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS google_connections (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS google_connections (
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_google_user_customer (user_id, customer_id),
     CONSTRAINT fk_google_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS pages (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS pages (
     meta_description VARCHAR(320) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS menus (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -141,14 +141,14 @@ CREATE TABLE IF NOT EXISTS menus (
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_menu_location (location, is_active, sort_order)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS settings (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     setting_key VARCHAR(190) NOT NULL UNIQUE,
     setting_value LONGTEXT NULL,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS daily_usage (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS daily_usage (
     visits_count INT UNSIGNED NOT NULL DEFAULT 0,
     UNIQUE KEY uq_usage_day (user_id, usage_date),
     CONSTRAINT fk_usage_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS queue_jobs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -174,4 +174,4 @@ CREATE TABLE IF NOT EXISTS queue_jobs (
     INDEX idx_queue_status (status, available_at),
     CONSTRAINT fk_queue_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_queue_website FOREIGN KEY (website_id) REFERENCES websites(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
