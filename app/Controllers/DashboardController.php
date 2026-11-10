@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace App\\Controllers;
+namespace App\Controllers;
 
-use App\\Core\\Database;
+use App\Core\Database;
 
 final class DashboardController
 {
