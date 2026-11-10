@@ -9,7 +9,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 - PHP extensions: PDO MySQL, JSON, OpenSSL, cURL, mbstring, DOM
 
 ## Fresh installation
-1. Create an empty MySQL database.
+1. Install and start MySQL 8, and create a dedicated database user with least-privilege permissions.
 2. Create a database named `adguard` and import `database/schema.sql`. The base schema uses `CREATE TABLE IF NOT EXISTS` and does not drop existing tables. It does not alter existing table definitions; use the numbered migrations for upgrades.
 3. Copy `.env.example` to `.env`.
 4. Set `APP_URL`, database credentials, and a unique random `APP_KEY` of at least 32 characters.
@@ -25,7 +25,7 @@ Native PHP 8.2+ and MySQL 8+ SaaS foundation for website traffic analysis, risk 
 - Keep `.env` outside the public document root.
 - Generate a random APP_KEY; changing it later makes existing encrypted Google tokens unreadable.
 - Google OAuth needs a configured OAuth client and redirect URI.
-- Google Ads API v26 access is tied to the Google Cloud project that owns the OAuth client. The developer-token requirement was sunset on September 9, 2026; this application does not request or send a developer-token header. Enable the Google Ads API and obtain the required project access level in Google Cloud Console.
+- Google Ads API v26 access is tied to the Google Cloud project that owns the OAuth client. The developer-token requirement was sunset on September 9, 2026; this application does not request or send a developer-token header. Enable the Google Ads API and obtain the required project access level in Google Cloud Console. See the [v26 API reference](https://developers.google.com/google-ads/api/reference/rpc/v26/overview) and [customer-level negative criteria service](https://developers.google.com/google-ads/api/reference/rpc/v26/CustomerNegativeCriterionService/MutateCustomerNegativeCriteria).
 - `GOOGLE_ADS_WRITES_ENABLED=false` is the safe default. It runs API validation only. To enable real changes, set it to true and require a separate live-confirmation checkbox for every exclusion or removal.
 - Tracking never writes to Google Ads automatically. Only a user-approved IP rule and a separately confirmed action can trigger a Google Ads API write.
 
