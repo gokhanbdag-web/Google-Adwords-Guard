@@ -37,7 +37,21 @@ try {
     );
     $stale->execute();
 
+    $retentionDays = max(7, min(3650, (int) env('VISIT_RETENTION_DAYS', 90)));
+    $prune = $pdo->prepare(
+        "DELETE FROM visits
+         WHERE created_at < DATE_SUB(NOW(), INTERVAL {$retentionDays} DAY)
+         LIMIT 10000"
+    );
+    $deletedVisits = 0;
+    do {
+        $prune->execute();
+        $deletedBatch = $prune->rowCount();
+        $deletedVisits += $deletedBatch;
+    } while ($deletedBatch === 10000);
+
     echo 'Expired subscriptions: ' . $expired->rowCount() . PHP_EOL;
+    echo 'Pruned visits: ' . $deletedVisits . PHP_EOL;
     echo 'Recovered queue jobs: ' . $stale->rowCount() . PHP_EOL;
 } catch (Throwable $e) {
     error_log('[AdGuard Cron] ' . $e::class . ': ' . $e->getMessage());
