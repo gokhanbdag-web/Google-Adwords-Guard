@@ -103,6 +103,61 @@ final class GoogleAdsApiClient
         );
     }
 
+
+    public function createAccountIpExclusion(
+        string $customerId,
+        string $ipAddress,
+        bool $validateOnly = true
+    ): array {
+        $customerId = $this->normalizeCustomerId($customerId);
+        if (filter_var($ipAddress, FILTER_VALIDATE_IP) === false) {
+            throw new RuntimeException('IP address is invalid.');
+        }
+
+        $escapedIp = addslashes($ipAddress);
+        $existingQuery = "SELECT customer_negative_criterion.resource_name,
+                                 customer_negative_criterion.ip_block.ip_address
+                          FROM customer_negative_criterion
+                          WHERE customer_negative_criterion.type = IP_BLOCK
+                            AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'";
+        $existing = $this->search($customerId, $existingQuery);
+
+        if ($existing !== []) {
+            return [
+                'already_exists' => true,
+                'validate_only' => $validateOnly,
+                'resource_name' => $existing[0]['customerNegativeCriterion']['resourceName'] ?? null
+            ];
+        }
+
+        $allIpBlocks = $this->search(
+            $customerId,
+            "SELECT customer_negative_criterion.resource_name
+             FROM customer_negative_criterion
+             WHERE customer_negative_criterion.type = IP_BLOCK"
+        );
+
+        if (count($allIpBlocks) >= 500) {
+            throw new RuntimeException('Google Ads hesabı 500 hesap düzeyi IP hariç tutma sınırına ulaşmış.');
+        }
+
+        return $this->request(
+            'POST',
+            "customers/{$customerId}/customerNegativeCriteria:mutate",
+            [
+                'operations' => [
+                    [
+                        'create' => [
+                            'ipBlock' => ['ipAddress' => $ipAddress]
+                        ]
+                    ]
+                ],
+                'partialFailure' => false,
+                'validateOnly' => $validateOnly
+            ]
+        );
+    }
+
     private function search(string $customerId, string $query): array
     {
         $allRows = [];
