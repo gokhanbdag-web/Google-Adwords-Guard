@@ -24,7 +24,7 @@ Google Ads invalid-traffic monitoring and IP-risk management SaaS, built with na
    `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"`
    Put the generated value in `APP_KEY`.
 8. Point the web server to the application root and enable the supplied `.htaccess`. HTTPS is required for production.
-9. Visit the application URL and register a customer account. Registration activates a seven-day trial.
+9. Visit the application URL and register a customer account. Registration activates a seven-day trial. To promote an existing account to administrator, run `php bin/create-admin.php user@example.com` from the project root over SSH/CLI.
 
 For local HTTP development only, set `SESSION_SECURE=false`. Keep it `true` in production.
 
