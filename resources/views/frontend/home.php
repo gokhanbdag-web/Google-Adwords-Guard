@@ -24,5 +24,6 @@
     <?php endif; ?>
     <a class="button" href="/register">Hemen Başlayın</a>
 </main>
+<footer class="container"><a href="/privacy">Gizlilik Politikası</a></footer>
 </body>
 </html>
