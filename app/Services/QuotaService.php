@@ -154,8 +154,8 @@ final class QuotaService
              WHERE s.user_id = :user_id
                AND s.status = 'active'
                AND (
-                    s.current_period_end IS NULL
-                    OR s.current_period_end >= NOW()
+                    s.ends_at IS NULL
+                    OR s.ends_at >= NOW()
                )
              ORDER BY s.id DESC
              LIMIT 1
