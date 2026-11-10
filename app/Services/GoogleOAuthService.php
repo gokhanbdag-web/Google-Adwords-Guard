@@ -143,8 +143,11 @@ final class GoogleOAuthService
 
     private function request(string $url, string $method, ?array $payload, array $headers): array
     {
-        $headers[] = 'developer-token: ' . $this->developerToken;
-        if ($payload !== null) {
+        $isForm = in_array('Content-Type: application/x-www-form-urlencoded', $headers, true);
+        if (!$isForm && str_starts_with($url, 'https://googleads.googleapis.com/')) {
+            $headers[] = 'developer-token: ' . $this->developerToken;
+        }
+        if ($payload !== null && !$isForm) {
             $headers[] = 'Content-Type: application/json';
         }
 
@@ -162,7 +165,6 @@ final class GoogleOAuthService
             CURLOPT_SSL_VERIFYHOST => 2
         ];
         if ($payload !== null) {
-            $isForm = str_contains(implode(' ', $headers), 'application/x-www-form-urlencoded');
             $options[CURLOPT_POSTFIELDS] = $isForm
                 ? http_build_query($payload, '', '&', PHP_QUERY_RFC3986)
                 : json_encode($payload, JSON_THROW_ON_ERROR);
