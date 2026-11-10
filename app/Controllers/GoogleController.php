@@ -63,7 +63,7 @@ final class GoogleController
         $rules = $ruleQuery->fetchAll(PDO::FETCH_ASSOC);
 
         $historyQuery = $pdo->prepare(
-            'SELECT customer_id, campaign_id, INET6_NTOA(ip_address) AS ip_address,
+            'SELECT id, customer_id, campaign_id, INET6_NTOA(ip_address) AS ip_address,
                     action, status, error_message, created_at
              FROM google_ads_operations
              WHERE user_id = :user_id
