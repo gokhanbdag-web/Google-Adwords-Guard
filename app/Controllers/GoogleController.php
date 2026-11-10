@@ -37,6 +37,10 @@ final class GoogleController
                     $selected['login_customer_id'] ?: null
                 );
                 $campaigns = $api->listCampaigns((string) $selected['customer_id']);
+                $campaigns = array_values(array_filter(
+                    $campaigns,
+                    static fn (array $campaign): bool => in_array($campaign['channel'], ['SEARCH', 'DISPLAY', 'SHOPPING'], true)
+                ));
             } catch (Throwable $exception) {
                 $googleError = $exception->getMessage();
             }
@@ -201,7 +205,10 @@ final class GoogleController
 
         $userId = (int) auth()['id'];
         $ruleId = (int) ($_POST['rule_id'] ?? 0);
-        $campaignId = preg_replace('/[^0-9]/', '', (string) ($_POST['campaign_id'] ?? '')) ?? '';
+        $scope = (string) ($_POST['scope'] ?? 'campaign');
+        $campaignId = $scope === 'account'
+            ? 'ACCOUNT'
+            : (preg_replace('/[^0-9]/', '', (string) ($_POST['campaign_id'] ?? '')) ?? '');
         $pdo = Database::connection();
         $connectionId = 0;
         $customerId = '';
@@ -254,12 +261,9 @@ final class GoogleController
                 (string) ($config['api_version'] ?? 'v26'),
                 $connection['login_customer_id'] ?: null
             );
-            $response = $api->createIpExclusion(
-                $customerId,
-                $campaignId,
-                $ipAddress,
-                $validateOnly
-            );
+            $response = $scope === 'account'
+                ? $api->createAccountIpExclusion($customerId, $ipAddress, $validateOnly)
+                : $api->createIpExclusion($customerId, $campaignId, $ipAddress, $validateOnly);
 
             $status = !empty($response['already_exists'])
                 ? 'already_exists'
@@ -274,7 +278,7 @@ final class GoogleController
                 $ipAddress,
                 $action,
                 $status,
-                ['ip_address' => $ipAddress, 'campaign_id' => $campaignId, 'validate_only' => $validateOnly],
+                ['scope' => $scope, 'ip_address' => $ipAddress, 'campaign_id' => $campaignId, 'validate_only' => $validateOnly],
                 $response,
                 null
             );
@@ -283,7 +287,9 @@ final class GoogleController
                 ? 'Bu IP adresi seçilen kampanyada zaten hariç tutuluyor.'
                 : ($validateOnly
                     ? 'Google Ads doğrulaması başarılı. Canlı değişiklik yapılmadı.'
-                    : 'IP adresi seçilen Google Ads kampanyasına hariç tutma olarak eklendi.');
+                    : ($scope === 'account'
+                        ? 'IP adresi Google Ads hesabının tüm kampanyaları için hariç tutuldu.'
+                        : 'IP adresi seçilen Google Ads kampanyasına hariç tutma olarak eklendi.'));
         } catch (Throwable $exception) {
             if ($connectionId > 0 && $customerId !== '' && $campaignId !== '' && $ipAddress !== '') {
                 $packedIp = inet_pton($ipAddress);
@@ -297,7 +303,7 @@ final class GoogleController
                         $ipAddress,
                         $action,
                         'failed',
-                        ['ip_address' => $ipAddress, 'campaign_id' => $campaignId, 'validate_only' => $validateOnly],
+                        ['scope' => $scope, 'ip_address' => $ipAddress, 'campaign_id' => $campaignId, 'validate_only' => $validateOnly],
                         null,
                         $exception->getMessage()
                     );
