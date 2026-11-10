@@ -74,19 +74,20 @@ final class GoogleOAuthService
         return array_values(array_unique($ids));
     }
 
-    public function search(string $accessToken, string $customerId, string $query): array
+    public function search(string $accessToken, string $customerId, string $query, ?string $loginCustomerId = null): array
     {
         $this->assertCustomerId($customerId);
         $response = $this->request(
             'https://googleads.googleapis.com/' . $this->apiVersion() . '/customers/' . $customerId . '/googleAds:search',
             'POST',
             ['query' => $query],
-            ['Authorization: Bearer ' . $accessToken]
+            ['Authorization: Bearer ' . $accessToken],
+            $loginCustomerId
         );
         return $response['results'] ?? [];
     }
 
-    public function listCampaigns(string $accessToken, string $customerId): array
+    public function listCampaigns(string $accessToken, string $customerId, ?string $loginCustomerId = null): array
     {
         return $this->search(
             $accessToken,
@@ -95,7 +96,8 @@ final class GoogleOAuthService
                     campaign.advertising_channel_type, campaign.advertising_channel_sub_type
              FROM campaign
              WHERE campaign.status != 'REMOVED'
-             ORDER BY campaign.name"
+             ORDER BY campaign.name",
+            $loginCustomerId
         );
     }
 
@@ -104,7 +106,8 @@ final class GoogleOAuthService
         string $customerId,
         int $campaignId,
         string $ipAddress,
-        bool $validateOnly = true
+        bool $validateOnly = true,
+        ?string $loginCustomerId = null
     ): array {
         $this->assertCustomerId($customerId);
         if ($campaignId <= 0 || filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -124,7 +127,8 @@ final class GoogleOAuthService
                 'partialFailure' => false,
                 'validateOnly' => $validateOnly
             ],
-            ['Authorization: Bearer ' . $accessToken]
+            ['Authorization: Bearer ' . $accessToken],
+            $loginCustomerId
         );
     }
 
@@ -133,7 +137,8 @@ final class GoogleOAuthService
         string $accessToken,
         string $customerId,
         string $ipAddress,
-        bool $validateOnly = true
+        bool $validateOnly = true,
+        ?string $loginCustomerId = null
     ): array {
         $this->assertCustomerId($customerId);
         if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -147,7 +152,8 @@ final class GoogleOAuthService
             "SELECT customer_negative_criterion.resource_name
              FROM customer_negative_criterion
              WHERE customer_negative_criterion.type = IP_BLOCK
-               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'"
+               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'",
+            $loginCustomerId
         );
         if ($existing !== []) {
             return ['already_exists' => true, 'response' => null];
@@ -158,7 +164,8 @@ final class GoogleOAuthService
             $customerId,
             "SELECT customer_negative_criterion.resource_name
              FROM customer_negative_criterion
-             WHERE customer_negative_criterion.type = IP_BLOCK"
+             WHERE customer_negative_criterion.type = IP_BLOCK",
+            $loginCustomerId
         );
         if (count($all) >= 500) {
             throw new RuntimeException('Google Ads account has reached the 500 IP exclusion limit.');
@@ -172,7 +179,8 @@ final class GoogleOAuthService
                 'partialFailure' => false,
                 'validateOnly' => $validateOnly
             ],
-            ['Authorization: Bearer ' . $accessToken]
+            ['Authorization: Bearer ' . $accessToken],
+            $loginCustomerId
         );
         return ['already_exists' => false, 'response' => $response];
     }
@@ -181,7 +189,8 @@ final class GoogleOAuthService
         string $accessToken,
         string $customerId,
         string $ipAddress,
-        bool $validateOnly = true
+        bool $validateOnly = true,
+        ?string $loginCustomerId = null
     ): array {
         $this->assertCustomerId($customerId);
         if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -195,7 +204,8 @@ final class GoogleOAuthService
             "SELECT customer_negative_criterion.resource_name
              FROM customer_negative_criterion
              WHERE customer_negative_criterion.type = IP_BLOCK
-               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'"
+               AND customer_negative_criterion.ip_block.ip_address = '{$escapedIp}'",
+            $loginCustomerId
         );
         $resourceName = (string) ($existing[0]['customerNegativeCriterion']['resourceName'] ?? '');
         if ($resourceName === '') {
@@ -210,7 +220,8 @@ final class GoogleOAuthService
                 'partialFailure' => false,
                 'validateOnly' => $validateOnly
             ],
-            ['Authorization: Bearer ' . $accessToken]
+            ['Authorization: Bearer ' . $accessToken],
+            $loginCustomerId
         );
         return ['not_found' => false, 'response' => $response];
     }
@@ -220,7 +231,8 @@ final class GoogleOAuthService
         string $customerId,
         int $campaignId,
         string $ipAddress,
-        bool $validateOnly = true
+        bool $validateOnly = true,
+        ?string $loginCustomerId = null
     ): array {
         $this->assertCustomerId($customerId);
         if ($campaignId <= 0 || filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -236,7 +248,8 @@ final class GoogleOAuthService
              WHERE campaign.id = {$campaignId}
                AND campaign_criterion.type = IP_BLOCK
                AND campaign_criterion.status != REMOVED
-               AND campaign_criterion.ip_block.ip_address = '{$escapedIp}'"
+               AND campaign_criterion.ip_block.ip_address = '{$escapedIp}'",
+            $loginCustomerId
         );
         $resourceName = (string) ($existing[0]['campaignCriterion']['resourceName'] ?? '');
         if ($resourceName === '') {
@@ -251,7 +264,8 @@ final class GoogleOAuthService
                 'partialFailure' => false,
                 'validateOnly' => $validateOnly
             ],
-            ['Authorization: Bearer ' . $accessToken]
+            ['Authorization: Bearer ' . $accessToken],
+            $loginCustomerId
         );
         return ['not_found' => false, 'response' => $response];
     }
@@ -266,9 +280,15 @@ final class GoogleOAuthService
         );
     }
 
-    private function request(string $url, string $method, ?array $payload, array $headers): array
+    private function request(string $url, string $method, ?array $payload, array $headers, ?string $loginCustomerId = null): array
     {
         $isForm = in_array('Content-Type: application/x-www-form-urlencoded', $headers, true);
+        if ($loginCustomerId !== null && $loginCustomerId !== '') {
+            if (!preg_match('/^[0-9]{6,20}$/', $loginCustomerId)) {
+                throw new RuntimeException('Invalid Google Ads manager customer ID.');
+            }
+            $headers[] = 'login-customer-id: ' . $loginCustomerId;
+        }
         if ($payload !== null && !$isForm) {
             $headers[] = 'Content-Type: application/json';
         }
