@@ -40,6 +40,7 @@ final class GoogleController
                 $campaigns = array_values(array_filter(
                     $campaigns,
                     static fn (array $campaign): bool => in_array($campaign['channel'], ['SEARCH', 'DISPLAY', 'SHOPPING'], true)
+                        && $campaign['sub_channel'] !== 'DISPLAY_SMART_CAMPAIGN'
                 ));
             } catch (Throwable $exception) {
                 $googleError = $exception->getMessage();
