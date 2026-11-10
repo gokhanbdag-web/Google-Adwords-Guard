@@ -1,54 +1,45 @@
-<!doctype html>
-<html lang="tr">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kontrol Paneli - AdGuard</title>
-    <link rel="stylesheet" href="/assets/app.css">
-</head>
-<body>
-<header class="dashboard-header">
-    <a href="/dashboard">AdGuard</a>
-    <nav>
-        <a href="/sites">Sitelerim</a>
-        <?php if (isAdmin()): ?><a href="/admin">Yönetim</a><?php endif; ?>
-        <form method="post" action="/logout">
-            <?= csrf_field() ?>
-            <button type="submit">Çıkış</button>
-        </form>
-    </nav>
-</header>
+<?php
+declare(strict_types=1);
 
-<main class="container">
-    <h1>Kontrol Paneli</h1>
-    <p>Hoş geldiniz, <?= e(auth()['name'] ?? '') ?></p>
+define('BASE_PATH', __DIR__);
 
-    <?php if (!empty($_SESSION['error'])): ?>
-        <p class="alert"><?= e($_SESSION['error']) ?></p>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
+$autoload = BASE_PATH . '/vendor/autoload.php';
+if (!is_file($autoload)) {
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    exit('AdGuard kurulumu tamamlanmamış. Önce composer install çalıştırın.');
+}
+require $autoload;
 
-    <?php if (!empty($_SESSION['success'])): ?>
-        <p class="success"><?= e($_SESSION['success']) ?></p>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
+use App\\Core\\Env;
+use App\\Core\\Router;
 
-    <section class="stats">
-        <article><span>Web siteleri</span><strong><?= $websiteCount ?></strong></article>
-        <article><span>Bugünkü ziyaretler</span><strong><?= $todayVisits ?></strong></article>
-        <article><span>Şüpheli ziyaretler</span><strong><?= $suspiciousVisits ?></strong></article>
-    </section>
+try {
+    Env::load(BASE_PATH . '/.env');
+} catch (Throwable $exception) {
+    error_log('[AdGuard] Environment loading failed: ' . $exception->getMessage());
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    exit('AdGuard yapılandırması eksik. .env dosyasını oluşturun.');
+}
 
-    <h2>Web Sitelerim</h2>
-    <a class="button" href="/sites/create">Yeni Site Ekle</a>
+$config = require BASE_PATH . '/config/app.php';
+date_default_timezone_set($config['timezone'] ?? 'Europe/Istanbul');
 
-    <?php foreach ($websites as $website): ?>
-        <article class="site-row">
-            <strong><?= e($website['name']) ?></strong>
-            <span><?= e($website['domain']) ?></span>
-            <span><?= e($website['status']) ?></span>
-        </article>
-    <?php endforeach; ?>
-</main>
-</body>
-</html>
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+session_name((string) ($config['session']['name'] ?? 'adguard_session'));
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => (bool) ($config['session']['secure'] ?? true),
+    'httponly' => true,
+    'samesite' => (string) ($config['session']['samesite'] ?? 'Lax')
+]);
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$router = new Router();
+require BASE_PATH . '/routes/web.php';
+$router->dispatch();
