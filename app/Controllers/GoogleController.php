@@ -226,8 +226,9 @@ final class GoogleController
             $connectionId = (int) $connection['id'];
             $customerId = (string) $connection['customer_id'];
 
-            if (!preg_match('/^[0-9]+$/', $campaignId)) {
-                throw new \RuntimeException('Kampanya seçimi geçersiz.');
+            if (!in_array($scope, ['account', 'campaign'], true)
+                || ($scope === 'campaign' && !preg_match('/^[0-9]+$/', $campaignId))) {
+                throw new \RuntimeException('Hedef seçimi geçersiz.');
             }
 
             $ruleQuery = $pdo->prepare(
