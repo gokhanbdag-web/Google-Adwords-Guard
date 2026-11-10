@@ -6,11 +6,13 @@ use App\Controllers\DashboardController;
 use App\Controllers\HomeController;
 use App\Controllers\GoogleController;
 use App\Controllers\IpRuleController;
+use App\Controllers\PageController;
 use App\Controllers\SiteController;
 use App\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Controllers\TrackingController;
 
 $router->get('/', [HomeController::class, 'index']);
+$router->get('/privacy', [PageController::class, 'privacy']);
 $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/register', [AuthController::class, 'showRegister']);
