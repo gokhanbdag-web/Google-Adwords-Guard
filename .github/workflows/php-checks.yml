@@ -12,6 +12,18 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -28,6 +40,11 @@ jobs:
 
       - name: Install dependencies and generate autoloader
         run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Apply fresh MySQL schema and seed data
+        run: |
+          mysql --host=127.0.0.1 --user=root --password=root < schema.sql
+          mysql --host=127.0.0.1 --user=root --password=root adguard < seeders.sql
 
       - name: Lint all PHP files
         run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
