@@ -68,9 +68,11 @@ function sqlStatements(string $sql): array {
 function runSqlFile(PDO $pdo, string $file, bool $schema = false): void {
     $sql = file_get_contents($file);
     if ($sql === false) { throw new RuntimeException('SQL dosyası okunamadı: ' . basename($file)); }
+    // The installer is already connected to the database selected in the form.
+    // Ignore dump-level USE statements so hosting database prefixes work.
+    $sql = preg_replace('/^\\s*USE\\s+[^;]+;\\s*/im', '', $sql);
     if ($schema) {
-        $sql = preg_replace('/^\s*CREATE\s+DATABASE\b[^;]*;\s*/im', '', $sql);
-        $sql = preg_replace('/^\s*USE\s+[^;]+;\s*/im', '', $sql);
+        $sql = preg_replace('/^\\s*CREATE\\s+DATABASE\\b[^;]*;\\s*/im', '', $sql);
     }
     foreach (sqlStatements($sql) as $statement) { $pdo->exec($statement); }
 }
