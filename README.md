@@ -2,7 +2,7 @@
 
 Google Ads invalid-traffic monitoring and IP-risk management SaaS, built with native PHP 8.2+ and MySQL 8.0+.
 
-> Current implementation status: account registration, seven-day trial provisioning, website registration, browser tracking, visit storage, initial risk scoring, quota enforcement, manual-review IP candidates, Google OAuth account linking, campaign listing, IP-exclusion validation, and opt-in campaign IP-exclusion writes are implemented. A live Google Ads account test is still required. Google Ads write operations remain disabled by default.
+> Current implementation status: account registration, seven-day trial provisioning, website registration, browser tracking, visit storage, initial risk scoring, quota enforcement, manual-review IP candidates, Google OAuth account linking, campaign listing, account-wide and campaign-level IP-exclusion validation, opt-in writes, and rollback controls are implemented. A live Google Ads account test is still required. Google Ads write operations remain disabled by default.
 
 ## Requirements
 
@@ -32,7 +32,7 @@ For local HTTP development only, set `SESSION_SECURE=false`. Keep it `true` in p
 
 - `schema.sql` is for fresh installations. It no longer drops existing tables.
 - Existing installations based on the earlier schema must take a database backup first.
-- If migration 002 has not already been applied, run `migrations/002_tracking_and_ip_management.sql`, then run `migrations/003_ip_rule_service_alignment.sql`, `migrations/004_google_ads_connections_and_audit.sql`, and `migrations/005_google_ads_operation_removal.sql`.
+- Apply any unapplied migrations from `migrations/002` through `migrations/005` in numeric order. Never rerun a migration that has already been applied.
 - Do not run upgrade migrations on a fresh database created from the complete current `schema.sql`.
 
 ## Google Ads API setup
@@ -47,7 +47,7 @@ For local HTTP development only, set `SESSION_SECURE=false`. Keep it `true` in p
 
 The Google Ads API developer-token sunset took effect on September 9, 2026. This project therefore does not require or send a developer-token header; API access is associated with the Google Cloud project that owns the OAuth credentials. Production-account access may require Explorer access or another approved access level in Google Cloud Console.
 
-The default `GOOGLE_ADS_WRITES_ENABLED=false` setting permits API validation only. To allow real campaign changes, an operator must deliberately set it to `true`; the user must also tick the live-operation confirmation for each individual IP exclusion. All operations are recorded in `google_ads_operations`. Start with validation mode and test with an account you control.
+The default `GOOGLE_ADS_WRITES_ENABLED=false` setting permits API validation only. To allow real changes, an operator must deliberately set it to `true`; the user must also tick the live-operation confirmation for each individual IP exclusion or removal. Account-level exclusions apply across the account (up to 500 IP exclusions); campaign-level exclusions are limited by Google to supported campaign types and up to 500 per campaign. All operations are recorded in `google_ads_operations`. Start with validation mode and test with an account you control.
 
 ## Website tracking
 
@@ -68,7 +68,7 @@ The cleanup command runs only from the command line. Choose and disclose a reten
 - Risk scoring is advisory and does not itself block a visitor.
 - Repeated high-risk activity creates a pending IP review candidate.
 - A candidate is not an active deny rule until a user reviews and approves it.
-- Google Ads writes are disabled by default. Do not enable them until OAuth, account selection, confirmation, audit logging, and API error handling have been implemented and tested.
+- Google Ads writes are disabled by default. Enable them only after validating OAuth, account selection, campaign eligibility, confirmation, audit logging, and API error handling with a test account.
 - Never commit `.env`, access tokens, refresh tokens, private keys, or production database credentials.
 
 ## Development
@@ -80,5 +80,5 @@ Work is being performed on the `development/adguard-pro` branch. The `main` bran
 - Payment collection and paid-plan subscription lifecycle are not implemented.
 - Email verification and password reset are not implemented.
 - Admin plan/user management is not complete.
-- Live Google Ads API behavior still needs verification against a real authorized account and the access level assigned to the deploying Cloud project. Removal/rollback of IP exclusions is not yet exposed in the UI.
-- Automated tests and production deployment verification still need to be added.
+- Live Google Ads API behavior and rollback still need verification against a real authorized account and the access level assigned to the deploying Cloud project.
+- Automated coverage currently focuses on PHP syntax and risk-scoring regressions; database, OAuth, and live Google Ads integration tests remain outstanding.
