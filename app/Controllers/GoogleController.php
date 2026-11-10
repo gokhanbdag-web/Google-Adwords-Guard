@@ -133,6 +133,16 @@ final class GoogleController
         );
         $rulesQuery->execute(['user_id' => $userId]);
         $rules = $rulesQuery->fetchAll(PDO::FETCH_ASSOC);
+        $actionsQuery = $pdo->prepare(
+            'SELECT id, ip_rule_id, customer_id, campaign_id, ip_address, action_type, status, error_message, created_at
+             FROM google_ads_actions
+             WHERE user_id = :user_id AND google_connection_id = :connection_id
+             ORDER BY id DESC LIMIT 50'
+        );
+        $actionsQuery->execute(['user_id' => $userId, 'connection_id' => $connectionId]);
+        $actions = $actionsQuery->fetchAll(PDO::FETCH_ASSOC);
+
+        $writesEnabled = (bool) (require BASE_PATH . '/config/google.php')['writes_enabled'];
         require BASE_PATH . '/resources/views/dashboard/google-campaigns.php';
     }
 
@@ -141,9 +151,16 @@ final class GoogleController
         requireAuth();
         $userId = (int) auth()['id'];
         $connectionId = (int) ($_POST['connection_id'] ?? 0);
-        $campaignId = (int) ($_POST['campaign_id'] ?? 0);
+        $scope = (string) ($_POST['scope'] ?? 'campaign');
+        $campaignId = $scope === 'account' ? 0 : (int) ($_POST['campaign_id'] ?? 0);
         $ruleId = (int) ($_POST['rule_id'] ?? 0);
+        $confirmLive = (string) ($_POST['confirm_live'] ?? '') === '1';
         $pdo = Database::connection();
+
+        if (!in_array($scope, ['account', 'campaign'], true) || ($scope === 'campaign' && $campaignId <= 0)) {
+            $_SESSION['error'] = 'Google Ads hedefi geçersiz.';
+            redirect('/google');
+        }
 
         $ruleQuery = $pdo->prepare(
             "SELECT r.id, r.website_id, INET6_NTOA(r.ip_address) AS ip_text,
@@ -171,12 +188,13 @@ final class GoogleController
             redirect('/google');
         }
 
+        $actionType = $scope === 'account' ? 'account_ip_exclusion' : 'ip_exclusion';
         $audit = $pdo->prepare(
             "INSERT INTO google_ads_actions
              (user_id, google_connection_id, ip_rule_id, customer_id, campaign_id,
               ip_address, action_type, status)
              VALUES (:user_id, :connection_id, :rule_id, :customer_id, :campaign_id,
-                     :ip_address, 'ip_exclusion', 'processing')"
+                     :ip_address, :action_type, 'processing')"
         );
         $audit->execute([
             'user_id' => $userId,
@@ -184,25 +202,37 @@ final class GoogleController
             'rule_id' => $ruleId,
             'customer_id' => $connection['customer_id'],
             'campaign_id' => $campaignId,
-            'ip_address' => $rule['ip_text']
+            'ip_address' => $rule['ip_text'],
+            'action_type' => $actionType
         ]);
         $auditId = (int) $pdo->lastInsertId();
 
         try {
-            $result = (new GoogleAdsApiService($pdo))->excludeIpForCampaign(
-                $userId,
-                $connectionId,
-                $campaignId,
-                (string) $rule['ip_text']
-            );
-            $status = $result['already_exists'] ? 'already_exists' : 'succeeded';
+            $service = new GoogleAdsApiService($pdo);
+            $result = $scope === 'account'
+                ? $service->excludeIpForAccount($userId, $connectionId, (string) $rule['ip_text'], $confirmLive)
+                : $service->excludeIpForCampaign($userId, $connectionId, $campaignId, (string) $rule['ip_text'], $confirmLive);
+
+            $status = !empty($result['already_exists'])
+                ? 'already_exists'
+                : (!empty($result['validate_only']) ? 'validated' : 'succeeded');
+            $resourceName = $result['response']['results'][0]['resourceName'] ?? null;
             $update = $pdo->prepare(
-                "UPDATE google_ads_actions SET status = :status WHERE id = :id"
+                'UPDATE google_ads_actions SET status = :status, provider_resource_name = :resource_name WHERE id = :id'
             );
-            $update->execute(['status' => $status, 'id' => $auditId]);
-            $_SESSION['success'] = $result['already_exists']
-                ? 'Bu IP zaten kampanyada hariç tutuluyor.'
-                : 'IP adresi Google Ads kampanyasında hariç tutuldu.';
+            $update->execute([
+                'status' => $status,
+                'resource_name' => $resourceName,
+                'id' => $auditId
+            ]);
+
+            $_SESSION['success'] = !empty($result['already_exists'])
+                ? 'Bu IP adresi Google Ads üzerinde zaten hariç tutuluyor.'
+                : (!empty($result['validate_only'])
+                    ? 'Google Ads doğrulaması başarılı. Canlı değişiklik yapılmadı.'
+                    : ($scope === 'account'
+                        ? 'IP adresi Google Ads hesabının tamamında hariç tutuldu.'
+                        : 'IP adresi Google Ads kampanyasında hariç tutuldu.'));
         } catch (Throwable $e) {
             error_log('[AdGuard Google Ads exclusion] ' . $e::class . ': ' . $e->getMessage());
             $update = $pdo->prepare(
@@ -212,8 +242,91 @@ final class GoogleController
                 'error' => mb_substr($e->getMessage(), 0, 1000),
                 'id' => $auditId
             ]);
-            $_SESSION['error'] = 'Google Ads IP hariç tutma işlemi başarısız oldu. API yetkilerini ve kampanya ayarlarını kontrol edin.';
+            $_SESSION['error'] = 'Google Ads IP hariç tutma işlemi başarısız oldu. API erişimini ve kampanya türünü kontrol edin.';
         }
+        redirect('/google');
+    }
+
+    public function removeIp(): void
+    {
+        requireAuth();
+        $userId = (int) auth()['id'];
+        $actionId = (int) ($_POST['action_id'] ?? 0);
+        $confirmLive = (string) ($_POST['confirm_live'] ?? '') === '1';
+        $pdo = Database::connection();
+
+        $sourceQuery = $pdo->prepare(
+            "SELECT id, google_connection_id, ip_rule_id, customer_id, campaign_id,
+                    ip_address, action_type
+             FROM google_ads_actions
+             WHERE id = :id AND user_id = :user_id
+               AND action_type IN ('ip_exclusion', 'account_ip_exclusion')
+               AND status = 'succeeded'
+             LIMIT 1"
+        );
+        $sourceQuery->execute(['id' => $actionId, 'user_id' => $userId]);
+        $source = $sourceQuery->fetch(PDO::FETCH_ASSOC);
+        if (!$source) {
+            $_SESSION['error'] = 'Kaldırılabilecek başarılı bir Google Ads IP hariç tutma kaydı bulunamadı.';
+            redirect('/google');
+        }
+
+        $connectionId = (int) $source['google_connection_id'];
+        $scope = $source['action_type'] === 'account_ip_exclusion' ? 'account' : 'campaign';
+        $campaignId = (int) $source['campaign_id'];
+        $removeActionType = $scope === 'account' ? 'account_ip_exclusion_remove' : 'ip_exclusion_remove';
+
+        $audit = $pdo->prepare(
+            "INSERT INTO google_ads_actions
+             (user_id, google_connection_id, ip_rule_id, customer_id, campaign_id,
+              ip_address, action_type, status)
+             VALUES (:user_id, :connection_id, :rule_id, :customer_id, :campaign_id,
+                     :ip_address, :action_type, 'processing')"
+        );
+        $audit->execute([
+            'user_id' => $userId,
+            'connection_id' => $connectionId,
+            'rule_id' => (int) $source['ip_rule_id'],
+            'customer_id' => $source['customer_id'],
+            'campaign_id' => $campaignId,
+            'ip_address' => $source['ip_address'],
+            'action_type' => $removeActionType
+        ]);
+        $auditId = (int) $pdo->lastInsertId();
+
+        try {
+            $result = (new GoogleAdsApiService($pdo))->removeIpExclusion(
+                $userId,
+                $connectionId,
+                $scope,
+                (string) $source['ip_address'],
+                $scope === 'campaign' ? $campaignId : null,
+                $confirmLive
+            );
+            $status = !empty($result['not_found'])
+                ? 'not_found'
+                : (!empty($result['validate_only']) ? 'validated' : 'succeeded');
+            $update = $pdo->prepare(
+                'UPDATE google_ads_actions SET status = :status WHERE id = :id'
+            );
+            $update->execute(['status' => $status, 'id' => $auditId]);
+
+            $_SESSION['success'] = !empty($result['not_found'])
+                ? 'Bu IP hariç tutması Google Ads hesabında bulunamadı.'
+                : (!empty($result['validate_only'])
+                    ? 'Kaldırma doğrulaması başarılı. Canlı değişiklik yapılmadı.'
+                    : 'IP hariç tutması Google Ads hesabından kaldırıldı.');
+        } catch (Throwable $e) {
+            error_log('[AdGuard Google Ads removal] ' . $e::class . ': ' . $e->getMessage());
+            $pdo->prepare(
+                "UPDATE google_ads_actions SET status = 'failed', error_message = :error WHERE id = :id"
+            )->execute([
+                'error' => mb_substr($e->getMessage(), 0, 1000),
+                'id' => $auditId
+            ]);
+            $_SESSION['error'] = 'Google Ads IP hariç tutması kaldırılamadı. API erişimini kontrol edin.';
+        }
+
         redirect('/google');
     }
 
