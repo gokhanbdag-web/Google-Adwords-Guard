@@ -117,7 +117,7 @@ final class IyzicoGateway
         if ($secret === '' || $merchantId === '' || $signature === '') {
             return false;
         }
-        $message = $secret . $merchantId .
+        $message = $merchantId . $secret .
             (string) ($payload['iyziEventType'] ?? '') .
             (string) ($payload['subscriptionReferenceCode'] ?? '') .
             (string) ($payload['orderReferenceCode'] ?? '') .
