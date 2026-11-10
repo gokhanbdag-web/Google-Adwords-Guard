@@ -12,6 +12,7 @@
     <nav>
         <a href="/sites">Sitelerim</a>
         <a href="/ip-rules">IP Yönetimi</a>
+        <a href="/google">Google Ads</a>
         <?php if (isAdmin()): ?><a href="/admin">Yönetim</a><?php endif; ?>
         <form method="post" action="/logout">
             <?= csrf_field() ?>
