@@ -46,8 +46,7 @@ $router->post('/track', static function (): void {
 
 if (PHP_SAPI !== 'cli' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-    $externalCallbacks = ['/track', '/payments/paytr/callback', '/payments/iyzico/callback'];
-    if (!in_array($path, $externalCallbacks, true) && !Security::verifyCsrf($_POST['_token'] ?? null)) {
+    if ($path !== '/track' && !Security::verifyCsrf($_POST['_token'] ?? null)) {
         http_response_code(419);
         exit('Oturum doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.');
     }
